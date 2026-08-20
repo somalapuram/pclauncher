@@ -41,6 +41,10 @@ import com.somalapuram.pclauncher.core.data.pins.Pins
 import com.somalapuram.pclauncher.feature.shell.bar.ShellBar
 import com.somalapuram.pclauncher.feature.shell.desktop.DesktopAppGrid
 import com.somalapuram.pclauncher.feature.shell.start.PinResolution
+import com.somalapuram.pclauncher.feature.shell.interaction.DragGhost
+import com.somalapuram.pclauncher.feature.shell.interaction.DragOrigin
+import com.somalapuram.pclauncher.feature.shell.interaction.DragState
+import com.somalapuram.pclauncher.feature.shell.interaction.DropTarget
 import com.somalapuram.pclauncher.feature.shell.start.StartMenu
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -78,6 +82,18 @@ fun HomeScreen(
     val pinnedIds = currentPins.items.map { it.component }
     val isPinned = { entry: AppEntry -> PinResolution.isPinned(pinnedIds, entry) }
 
+    // One drag, shared. The desktop starts drags the bar has to answer and vice versa, so a single
+    // value is the only version that cannot disagree with itself (direct-manipulation.md).
+    val drag = remember { DragState() }
+    var barTopY by remember { mutableStateOf(Float.MAX_VALUE) }
+    var barBottomY by remember { mutableStateOf(Float.MAX_VALUE) }
+
+    fun finishDrag() {
+        // The store operation is the same one the context menu calls — dragging is a second route
+        // to it, never a second implementation.
+        drag.end(isPinned)?.let { onTogglePin(it.entry) }
+    }
+
     // An outer Box so the Start menu can float *over* the desktop. Putting it in the column made
     // it a sibling that squeezed the desktop upward as it opened.
     Box(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
@@ -97,6 +113,9 @@ fun HomeScreen(
                     onLaunch = onLaunchApp,
                     onTogglePin = onTogglePin,
                     iconFor = iconFor,
+                    onDragStart = { entry, at -> drag.start(entry, DragOrigin.Desktop, at) },
+                    onDrag = { delta -> drag.moveTo(drag.position + delta, barTopY, barBottomY) },
+                    onDragEnd = { finishDrag() },
                 )
 
                 is StartupOutcome.Fallback -> FallbackDesktop(
@@ -125,12 +144,28 @@ fun HomeScreen(
                 onWindowFocus = {},
                 onWindowClose = {},
                 onShowDesktop = {},
+                onBoundsChanged = { top, bottom -> barTopY = top; barBottomY = bottom },
+                isDropTarget = drag.isActive && drag.target == DropTarget.Dock,
+                onItemContextMenu = { item ->
+                    docked.firstOrNull { it.key.component.flattenToShortString() == item.id }
+                        ?.let(onTogglePin)
+                },
+                onItemDragStart = { item, at ->
+                    docked.firstOrNull { it.key.component.flattenToShortString() == item.id }
+                        ?.let { drag.start(it, DragOrigin.Dock, at) }
+                },
+                onItemDrag = { delta -> drag.moveTo(drag.position + delta, barTopY, barBottomY) },
+                onItemDragEnd = { finishDrag() },
                 modifier = Modifier.padding(
                     horizontal = PcSpacing.Large,
                     vertical = PcSpacing.Small,
                 ),
             )
         }
+    }
+
+    if (drag.isActive) {
+        DragGhost(drag = drag, iconFor = iconFor)
     }
 
     if (outcome is StartupOutcome.Ready && startOpen) {
@@ -187,6 +222,9 @@ private fun Desktop(
     onLaunch: (AppEntry) -> Unit,
     onTogglePin: (AppEntry) -> Unit,
     iconFor: (AppEntry) -> android.graphics.drawable.Drawable?,
+    onDragStart: (AppEntry, androidx.compose.ui.geometry.Offset) -> Unit,
+    onDrag: (androidx.compose.ui.geometry.Offset) -> Unit,
+    onDragEnd: () -> Unit,
 ) {
     if (apps.isNotEmpty()) {
         DesktopAppGrid(
@@ -195,6 +233,9 @@ private fun Desktop(
             onLaunch = onLaunch,
             onTogglePin = onTogglePin,
             iconFor = iconFor,
+            onDragStart = onDragStart,
+            onDrag = onDrag,
+            onDragEnd = onDragEnd,
         )
         if (!isDefaultHome) {
             SetHomePrompt(onSetDefaultHome)

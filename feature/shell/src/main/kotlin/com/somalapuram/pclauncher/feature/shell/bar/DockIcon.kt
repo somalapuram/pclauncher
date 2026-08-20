@@ -20,7 +20,15 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.somalapuram.pclauncher.core.design.LocalPcColors
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.somalapuram.pclauncher.core.design.PcSize
+import com.somalapuram.pclauncher.feature.shell.interaction.appItemGestures
 
 /**
  * One dock icon, magnified.
@@ -37,12 +45,28 @@ fun DockIcon(
     painter: Painter?,
     modifier: Modifier = Modifier,
     iconSize: Dp = PcSize.DockIcon,
+    onClick: () -> Unit = {},
+    onContextMenu: () -> Unit = {},
+    onDragStart: (Offset) -> Unit = {},
+    onDrag: (Offset) -> Unit = {},
+    onDragEnd: () -> Unit = {},
 ) {
     val colors = LocalPcColors.current
+    // Root coordinates, because the drop test compares against the bar's own bounds.
+    var originInRoot by remember { mutableStateOf(Offset.Zero) }
 
     Box(
         modifier = modifier
             .size(PcSize.MinTouchTarget)
+            .onGloballyPositioned { originInRoot = it.positionInRoot() }
+            .appItemGestures(
+                key = item.id,
+                onClick = onClick,
+                onContextMenu = onContextMenu,
+                onDragStart = { local -> onDragStart(originInRoot + local) },
+                onDrag = onDrag,
+                onDragEnd = onDragEnd,
+            )
             .semantics {
                 contentDescription = buildString {
                     append(item.label)

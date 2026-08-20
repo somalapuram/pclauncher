@@ -22,6 +22,13 @@ android {
     buildFeatures {
         compose = true
     }
+
+    testOptions {
+        unitTests {
+            // Compose UI tests need the merged resources and the test-manifest activity.
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 kotlin {

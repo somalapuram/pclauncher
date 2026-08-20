@@ -24,7 +24,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.somalapuram.pclauncher.core.design.LocalPcColors
@@ -57,6 +59,14 @@ fun ShellBar(
     onWindowClose: (WindowChip) -> Unit,
     onShowDesktop: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Reports the bar's vertical extent in root coordinates, for the drop test. */
+    onBoundsChanged: (Float, Float) -> Unit = { _, _ -> },
+    /** True while a drag would land here — the bar lights up so a drop is never a guess. */
+    isDropTarget: Boolean = false,
+    onItemContextMenu: (DockItem) -> Unit = {},
+    onItemDragStart: (DockItem, androidx.compose.ui.geometry.Offset) -> Unit = { _, _ -> },
+    onItemDrag: (androidx.compose.ui.geometry.Offset) -> Unit = {},
+    onItemDragEnd: () -> Unit = {},
 ) {
     val colors = LocalPcColors.current
     val density = LocalDensity.current
@@ -94,8 +104,16 @@ fun ShellBar(
             .fillMaxWidth()
             .heightIn(min = PcSize.DockHeightAtRest)
             .height(PcSize.DockHeightAtRest + extraHeight.dp)
+            .onGloballyPositioned {
+                val top = it.positionInRoot().y
+                onBoundsChanged(top, top + it.size.height)
+            }
             .background(colors.scrim.copy(alpha = alpha), RoundedCornerShape(PcCorners.Dock))
-            .border(1.dp, colors.hairline, RoundedCornerShape(PcCorners.Dock))
+            .border(
+                width = if (isDropTarget) 2.dp else 1.dp,
+                color = if (isDropTarget) colors.accent else colors.hairline,
+                shape = RoundedCornerShape(PcCorners.Dock),
+            )
             .padding(horizontal = PcSpacing.Small)
             .pointerInput(state.magnificationEnabled) {
                 awaitPointerEventScope {
@@ -132,10 +150,11 @@ fun ShellBar(
                         item = item,
                         scale = DockMagnification.scaleAt(index, pointerIndex),
                         painter = bitmapPainterFor(item.icon),
-                        modifier = Modifier.clickable(
-                            interactionSource = null,
-                            indication = null,
-                        ) { onDockItemClick(item) },
+                        onClick = { onDockItemClick(item) },
+                        onContextMenu = { onItemContextMenu(item) },
+                        onDragStart = { at -> onItemDragStart(item, at) },
+                        onDrag = onItemDrag,
+                        onDragEnd = onItemDragEnd,
                     )
                 }
             }

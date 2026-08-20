@@ -34,7 +34,11 @@ import com.somalapuram.pclauncher.core.design.LocalPcColors
 import com.somalapuram.pclauncher.core.design.PcCorners
 import com.somalapuram.pclauncher.core.design.PcSize
 import com.somalapuram.pclauncher.core.design.PcSpacing
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import com.somalapuram.pclauncher.feature.shell.bar.bitmapPainterFor
+import com.somalapuram.pclauncher.feature.shell.interaction.appItemGestures
 
 /**
  * Apps on the desktop.
@@ -51,6 +55,9 @@ fun DesktopAppGrid(
     onTogglePin: (AppEntry) -> Unit,
     iconFor: (AppEntry) -> android.graphics.drawable.Drawable?,
     modifier: Modifier = Modifier,
+    onDragStart: (AppEntry, Offset) -> Unit = { _, _ -> },
+    onDrag: (Offset) -> Unit = {},
+    onDragEnd: () -> Unit = {},
 ) {
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = PcSize.DesktopGridCell),
@@ -65,6 +72,9 @@ fun DesktopAppGrid(
                 painter = iconFor(entry),
                 onLaunch = { onLaunch(entry) },
                 onTogglePin = { onTogglePin(entry) },
+                onDragStart = { local -> onDragStart(entry, local) },
+                onDrag = onDrag,
+                onDragEnd = onDragEnd,
             )
         }
     }
@@ -77,11 +87,17 @@ private fun DesktopIcon(
     painter: android.graphics.drawable.Drawable?,
     onLaunch: () -> Unit,
     onTogglePin: () -> Unit,
+    onDragStart: (Offset) -> Unit,
+    onDrag: (Offset) -> Unit,
+    onDragEnd: () -> Unit,
 ) {
     val colors = LocalPcColors.current
     var menuOpen by remember { mutableStateOf(false) }
+    // Drag positions have to be in root coordinates: the drop test compares them against the bar,
+    // which lives in a different part of the tree.
+    var originInRoot by remember { mutableStateOf(Offset.Zero) }
 
-    Box {
+    Box(modifier = Modifier.onGloballyPositioned { originInRoot = it.positionInRoot() }) {
         Column(
             modifier = Modifier
                 .width(PcSize.DesktopGridCell)
@@ -90,7 +106,15 @@ private fun DesktopIcon(
                     else androidx.compose.ui.graphics.Color.Transparent,
                     RoundedCornerShape(PcCorners.Popover),
                 )
-                .clickable(enabled = entry.isLaunchable) { onLaunch() }
+                .appItemGestures(
+                    key = entry.key,
+                    enabled = entry.isLaunchable,
+                    onClick = onLaunch,
+                    onContextMenu = { menuOpen = true },
+                    onDragStart = { local -> onDragStart(originInRoot + local) },
+                    onDrag = onDrag,
+                    onDragEnd = onDragEnd,
+                )
                 .padding(vertical = PcSpacing.Small),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(PcSpacing.ExtraSmall),

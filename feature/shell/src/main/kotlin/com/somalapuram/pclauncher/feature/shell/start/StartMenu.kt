@@ -48,6 +48,7 @@ import com.somalapuram.pclauncher.core.design.LocalPcColors
 import com.somalapuram.pclauncher.core.design.PcCorners
 import com.somalapuram.pclauncher.core.design.PcSpacing
 import com.somalapuram.pclauncher.feature.shell.bar.bitmapPainterFor
+import com.somalapuram.pclauncher.feature.shell.interaction.appItemGestures
 
 /**
  * The Start menu: every launchable app, with a filter (SRS §6.4).
@@ -198,7 +199,12 @@ private fun AppRow(
                 if (isSelected) colors.onSurface.copy(alpha = 0.12f) else androidx.compose.ui.graphics.Color.Transparent,
                 RoundedCornerShape(PcCorners.Popover),
             )
-            .clickable(enabled = entry.isLaunchable) { onLaunch() }
+            .appItemGestures(
+                key = entry.key,
+                enabled = entry.isLaunchable,
+                onClick = onLaunch,
+                onContextMenu = { menuOpen = true },
+            )
             .padding(horizontal = PcSpacing.Small),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(PcSpacing.Medium),
