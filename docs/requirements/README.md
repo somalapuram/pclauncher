@@ -32,7 +32,7 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 ### launch
 - [`launch/app-inventory.md`](launch/app-inventory.md) — `LauncherApps` inventory keyed by
   (component, user), icon cache, work/private profiles, incremental deltas, usage/recency.
-  *Status: Accepted · In progress.*
+  *Status: Accepted · Implemented.*
 
 ### windows
 - `windows/capability-tiers.md` — `WindowBackend` interface + T0, runtime tier detection, the

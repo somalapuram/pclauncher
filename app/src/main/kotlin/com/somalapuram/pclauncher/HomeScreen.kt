@@ -20,6 +20,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import com.somalapuram.pclauncher.core.apps.AppEntry
 import com.somalapuram.pclauncher.core.design.LocalPcColors
 import com.somalapuram.pclauncher.core.design.LocalSurfaceTreatment
 import com.somalapuram.pclauncher.core.design.PcCorners
@@ -40,6 +44,7 @@ fun HomeScreen(
     onSetDefaultHome: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    safeModeApps: List<AppEntry> = emptyList(),
 ) {
     Box(
         modifier = modifier.fillMaxSize().safeDrawingPadding(),
@@ -56,6 +61,7 @@ fun HomeScreen(
                 reason = outcome.reason,
                 onRetry = onRetry,
                 onSetDefaultHome = onSetDefaultHome,
+                apps = safeModeApps,
             )
         }
     }
@@ -97,6 +103,7 @@ private fun FallbackDesktop(
     reason: FallbackReason,
     onRetry: () -> Unit,
     onSetDefaultHome: () -> Unit,
+    apps: List<AppEntry> = emptyList(),
 ) {
     ShellCard {
         Text(
@@ -120,6 +127,21 @@ private fun FallbackDesktop(
         }
         TextButton(onClick = onSetDefaultHome) {
             Text("Home settings", color = LocalPcColors.current.onSurfaceMuted)
+        }
+
+        // Labels only, no icons: safe mode must not touch the icon cache, which is one of the
+        // things whose failure lands the user here (GATE 4).
+        if (apps.isNotEmpty()) {
+            LazyColumn(modifier = Modifier.heightIn(max = 240.dp)) {
+                items(apps, key = { it.key.component.flattenToShortString() }) { app ->
+                    Text(
+                        text = app.label,
+                        color = LocalPcColors.current.onSurface,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(vertical = PcSpacing.ExtraSmall),
+                    )
+                }
+            }
         }
     }
 }

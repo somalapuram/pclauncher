@@ -1,5 +1,6 @@
 package com.somalapuram.pclauncher
 
+import com.somalapuram.pclauncher.core.apps.AppEntry
 import com.somalapuram.pclauncher.platform.privileged.Tier
 
 /**
@@ -11,6 +12,23 @@ data class DesktopEnvironment(val tier: Tier)
 /** Loads [DesktopEnvironment]. Injected, so a failing load can be exercised in a test. */
 fun interface DesktopEnvironmentSource {
     fun load(): DesktopEnvironment
+}
+
+/**
+ * The app list shown by the **fallback** desktop.
+ *
+ * Deliberately its own seam rather than the normal inventory: safe mode is reached *because*
+ * something failed, so this must not depend on the icon cache, the usage store, or anything else
+ * that could have been the thing that broke (GATE 4, requirement doc Notes). It returns labels
+ * only — no icons — and returning an empty list is an acceptable answer.
+ */
+fun interface SafeModeApps {
+    fun list(): List<AppEntry>
+
+    companion object {
+        /** What safe mode falls back to when even the bare listing fails. */
+        val Empty = SafeModeApps { emptyList() }
+    }
 }
 
 /** Why the shell fell back. Shown to the user — so each value has to mean something to them. */

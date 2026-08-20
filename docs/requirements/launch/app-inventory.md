@@ -1,6 +1,6 @@
 # Launch — App Inventory
 
-Status: **Accepted · In progress** (2026-08-20)
+Status: **Accepted · Implemented** (2026-08-20)
 
 SRS §14 Phase 2. The list of things the shell can launch, and what they look like. Derives from
 [`../../SRS-pclauncher.md`](../../SRS-pclauncher.md) §3 (tech stack), §9 (`core:apps`), §10 (the
@@ -78,27 +78,31 @@ When this is done, the following must be true:
 
 ## Acceptance criteria
 
-- [ ] `AppEntry` is keyed by `(ComponentName, UserHandle)`; two entries for the same package in
+- [x] `AppEntry` is keyed by `(ComponentName, UserHandle)`; two entries for the same package in
       different profiles coexist and are distinguishable.
-- [ ] Inventory is built via an injectable `AppSource` over `LauncherApps` + `getProfiles()`; the
-      real implementation is the only thing touching the framework.
-- [ ] Work and private-profile entries carry their profile kind and badged icon; quiet-mode entries
-      are present and marked unavailable, not dropped.
-- [ ] `resizeMode`/fixed-orientation is captured per entry (consumed later by phase 6).
-- [ ] A pure delta function handles add, remove, change/replace, suspend/unsuspend,
+- [x] Inventory is built via an injectable `AppSource` over `LauncherApps` + `getProfiles()`;
+      `LauncherAppsSource` is the only class touching the framework.
+- [~] Work entries carry their profile kind and a **badged** icon (`getBadgedIcon`), and quiet-mode
+      entries are present and marked unavailable rather than dropped. **Private space is not told
+      apart from work** — see Notes.
+- [~] `resizeMode` is captured per entry — but only the fixed-orientation half of it, because
+      `ActivityInfo.resizeMode` is `@hide`. See Notes.
+- [x] A pure `applyChange` handles add, remove, change/replace, suspend/unsuspend,
       available/unavailable, profile add/remove, and locale change — each covered by a test.
-- [ ] No code path performs a full rescan in response to a single package event.
-- [ ] The inventory is a `Flow` that emits before the full list is ready; no main-thread work
-      (asserted with a test dispatcher).
-- [ ] Icon cache is memory-over-disk, keyed by component + user + density + package version; an app
-      update invalidates its icon (test).
-- [ ] A missing or failing icon returns the placeholder rather than throwing (test).
-- [ ] Default ordering uses a locale `Collator`; ordering is pure and tested, including a
-      non-ASCII label case.
-- [ ] Usage access held → `UsageStatsManager`; not held → local counters. Both paths tested; the
-      decision is detected, not assumed.
-- [ ] `./gradlew test` green 3× consecutively; `./gradlew lint` clean; tests mirror `core/apps/src`.
-- [ ] `core:apps` depends on no `feature:` module and pulls in no Compose.
+- [x] No code path performs a full rescan for a single package event; an upsert re-reads one package.
+- [x] The inventory is a `StateFlow` that emits empty-and-incomplete before the list is ready, and
+      loads per profile off the main thread (asserted with a test dispatcher).
+- [x] Icon cache is memory-over-disk-over-loader, keyed by component + user serial + density +
+      package version; an app update cannot be served the previous icon (test).
+- [x] A missing, failing, or null icon returns the placeholder rather than throwing; a broken disk
+      store does not break the cache (tests).
+- [x] Default ordering uses a locale `Collator`, including a non-ASCII case; ties are broken so the
+      order is stable across rebuilds.
+- [x] Usage access held → `UsageStatsManager`; not held → local counters; **system returning empty
+      falls through to local** rather than showing nothing. Access is re-checked per call. All tested.
+- [x] `./gradlew test` green 3× consecutively (75 tests across the project); `./gradlew lint` clean;
+      tests mirror `core/apps/src`.
+- [x] `core:apps` depends on no `feature:` module and pulls in no Compose.
 
 ## Notes
 
@@ -118,5 +122,24 @@ When this is done, the following must be true:
   second mechanism.
 - **Why not `PackageManager.queryIntentActivities`:** it is not profile-aware, gives no badged
   icons, and has no change callback. Every launcher that starts there ends up rewriting it.
+- **Private space is not discriminated from work.** `LauncherApps.getProfiles()` returns it, but no
+  *public* predicate distinguishes it from a managed profile at this API level, so both map to
+  `ProfileKind.Work`. `ProfileKind.Private` exists in the model and is unused. Recorded rather than
+  guessed; phase 9 can read the real answer through the privileged provider.
+- **Resizability is a partial signal.** `ActivityInfo.resizeMode` is `@hide`, so unprivileged code
+  sees only fixed orientation. An activity declaring `resizeableActivity="false"` without pinning
+  its orientation reads as resizable here — so `windows/freeform-launch.md` must also handle a
+  launch that comes back non-freeform, rather than trusting this flag.
+- **The `usage` store is Preferences DataStore, not Proto.** SRS §10 names Proto, which is right for
+  the structured stores; this one holds two scalars per key and a protobuf schema buys nothing. A
+  deliberate deviation — if it grows a third field it should move to Proto with the others.
+- **Package visibility is a `<queries>` declaration, not `QUERY_ALL_PACKAGES`.** The inventory only
+  needs apps with a launcher entry, and the narrower declaration says exactly that. SRS §11 was
+  updated to match.
+- **The disk icon tier rasterises**, which discards adaptive-icon layers. It exists to make a cold
+  start cheap; the memory tier above it always holds the real drawable, so the flattened copy is
+  only ever the first frame after a restart.
+- **`recordLaunch` has no caller yet** — nothing in this slice launches anything. The dock wires it
+  when it starts apps.
 - **Not in this slice:** launching apps, pinning, shortcuts (`getShortcuts`), app widgets, folders,
   search ranking, or any UI.

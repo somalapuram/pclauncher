@@ -424,7 +424,7 @@ to defaults — never the whole app, never a crash loop on boot.
 | `SYSTEM_ALERT_WINDOW` | dock/menu bar over apps | first run, explained |
 | `PACKAGE_USAGE_STATS` | recency ordering | first run, optional |
 | `BIND_APPWIDGET` / `ACTION_APPWIDGET_BIND` | host widgets | when adding the first widget |
-| `QUERY_ALL_PACKAGES` | app inventory | manifest; justified as a launcher |
+| `<queries>` MAIN/LAUNCHER | app inventory | manifest. Deliberately **not** `QUERY_ALL_PACKAGES` — the inventory only needs apps with a launcher entry, and the narrower declaration says exactly that |
 | `FOREGROUND_SERVICE` (+ `SPECIAL_USE`) | shell service | manifest |
 | `POST_NOTIFICATIONS` | shell service notification | first run |
 | Shizuku | T2 in Stage A | never required; offered once |

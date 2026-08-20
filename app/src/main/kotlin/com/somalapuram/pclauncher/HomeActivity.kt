@@ -25,6 +25,14 @@ class HomeActivity : ComponentActivity() {
 
         val outcome = resolveStartup(runCatching { loadEnvironment() })
 
+        // Only paid for when we are actually in safe mode, and guarded again on the way in:
+        // the listing is a best effort, not a second thing that can strand the user.
+        val safeModeApps = if (outcome is StartupOutcome.Fallback) {
+            runCatching { entryPoint().safeModeApps().list() }.getOrDefault(emptyList())
+        } else {
+            emptyList()
+        }
+
         setContent {
             PcTheme {
                 HomeScreen(
@@ -32,14 +40,14 @@ class HomeActivity : ComponentActivity() {
                     isDefaultHome = HomeRole.isDefault(this),
                     onSetDefaultHome = { startActivity(HomeRole.requestIntent(this)) },
                     onRetry = { recreate() },
+                    safeModeApps = safeModeApps,
                 )
             }
         }
     }
 
-    private fun loadEnvironment(): DesktopEnvironment =
-        EntryPointAccessors
-            .fromApplication(applicationContext, HomeEntryPoint::class.java)
-            .desktopEnvironmentSource()
-            .load()
+    private fun loadEnvironment(): DesktopEnvironment = entryPoint().desktopEnvironmentSource().load()
+
+    private fun entryPoint(): HomeEntryPoint =
+        EntryPointAccessors.fromApplication(applicationContext, HomeEntryPoint::class.java)
 }
