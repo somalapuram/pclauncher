@@ -54,7 +54,7 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
   taskbar window chips, Show Desktop. Rendered in the HOME activity first; the overlay service
   hosts the same composables later. *Status: Accepted · Partially implemented.*
 - [`shell/start-menu.md`](shell/start-menu.md) — all apps + search, keyboard-first, right-click to
-  pin. *Status: Accepted · Partially implemented.*
+  pin. *Status: Accepted · Partially implemented (outside-click dismiss done; App info pending).*
 - [`shell/pinning.md`](shell/pinning.md) — the `pins` store and pin/unpin from every surface that
   lists an app. *Status: Accepted · Implemented.*
 - `shell/command-palette.md` — Spotlight palette + `PaletteProvider`. *Status: Planned.*

@@ -16,6 +16,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -77,7 +78,11 @@ fun HomeScreen(
     val pinnedIds = currentPins.items.map { it.component }
     val isPinned = { entry: AppEntry -> PinResolution.isPinned(pinnedIds, entry) }
 
-    Column(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
+    // An outer Box so the Start menu can float *over* the desktop. Putting it in the column made
+    // it a sibling that squeezed the desktop upward as it opened.
+    Box(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
+
+    Column(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier = Modifier.weight(1f).fillMaxSize(),
             contentAlignment = Alignment.Center,
@@ -106,22 +111,6 @@ fun HomeScreen(
         // The bar renders from the inventory Flow, so it appears with the desktop and fills in —
         // an empty dock is a valid first frame, never a spinner (dock-taskbar.md requirement 8).
         // Safe mode gets no bar: it must not depend on the inventory or the icon cache.
-        if (outcome is StartupOutcome.Ready && startOpen) {
-            Box(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = PcSpacing.Large),
-                contentAlignment = Alignment.BottomStart,
-            ) {
-                StartMenu(
-                    entries = apps.entries,
-                    isPinned = isPinned,
-                    onLaunch = { onLaunchApp(it); startOpen = false },
-                    onTogglePin = onTogglePin,
-                    onDismiss = { startOpen = false },
-                    iconFor = iconFor,
-                )
-            }
-        }
-
         if (outcome is StartupOutcome.Ready) {
             val docked = PinResolution.resolve(apps.entries, pinnedIds)
             ShellBar(
@@ -143,7 +132,50 @@ fun HomeScreen(
             )
         }
     }
+
+    if (outcome is StartupOutcome.Ready && startOpen) {
+        // A full-screen catcher under the menu. It covers the bar too, so a click on the Start
+        // button while the menu is open lands here and closes it once, rather than reaching the
+        // button and toggling twice back to open.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .testTag(StartScrimTag)
+                .clickable(
+                    interactionSource = null,
+                    indication = null,
+                ) { startOpen = false },
+        )
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = PcSpacing.Large, bottom = StartMenuBottomInset),
+        ) {
+            StartMenu(
+                entries = apps.entries,
+                isPinned = isPinned,
+                onLaunch = { onLaunchApp(it); startOpen = false },
+                onTogglePin = onTogglePin,
+                onDismiss = { startOpen = false },
+                iconFor = iconFor,
+            )
+        }
+    }
+    }
 }
+
+/**
+ * The dismiss layer.
+ *
+ * Tagged so a test can assert it is reachable: the failure mode here is z-order, where the scrim
+ * ends up *under* the desktop and clicks silently never reach it. That is invisible in a diff and
+ * only shows up by trying to click.
+ */
+const val StartScrimTag = "start-scrim"
+
+/** Clears the bar, so the menu sits above it rather than over it. */
+private val StartMenuBottomInset = 72.dp
 
 @Composable
 private fun Desktop(

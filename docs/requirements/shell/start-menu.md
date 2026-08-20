@@ -47,9 +47,8 @@ already-loaded data — never a re-query of `LauncherApps` per keystroke.
 
 ## Acceptance criteria
 
-- [x] The menu opens from the Start button and closes on Esc and on launching; the button shows its
-      open state in the accent colour.
-- [ ] **Closing on an outside click is not implemented** — clicking the desktop leaves the menu up.
+- [x] The menu opens from the Start button and closes on Esc, on launching, and **on a click
+      outside**; the button shows its open state in the accent colour.
 - [x] Every launchable app appears, in the inventory's locale-aware order, work profiles included.
 - [x] Search is case- and diacritic-insensitive; prefix and word-start matches rank above substring
       matches, and within a rank inventory order is kept (tests).
@@ -75,6 +74,14 @@ already-loaded data — never a re-query of `LauncherApps` per keystroke.
   secondary-click primitive, and the desktop AVD delivers a right-click as a plain tap. An explicit
   affordance works with mouse, touch and keyboard today; real right-click and long-press belong
   with the wider context-menu work.
+- **The menu floats over the desktop, it does not sit in the column.** Originally it was a sibling
+  of the desktop and the bar, so opening it squeezed the desktop upward. It is now a layer in an
+  outer `Box`, above a full-screen dismiss layer.
+- **A surface that only looks solid does not consume clicks.** Compose hit-tests only nodes that
+  handle input, so clicks landing on the menu's own padding fell straight through to the dismiss
+  layer and closed it. The menu root now swallows those; rows and the search field are hit-tested
+  first and are unaffected. The dismiss layer carries a test tag because the failure mode here is
+  z-order, which is invisible in a diff and only shows up by trying to click.
 - **Ranking order was a real bug the tests caught:** plain containment was tested before the
   word-start case, so "Google Calendar Sync" ranked below an incidental match like "Vertical" for
   the query "cal". Word-start is now tested first.

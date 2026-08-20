@@ -84,6 +84,11 @@ fun StartMenu(
         modifier = modifier
             .width(420.dp)
             .heightIn(max = 560.dp)
+            // Swallow clicks that land on the menu's own inert areas — its padding, the gap beside
+            // a row. A surface that only *looks* solid lets those fall through to the dismiss
+            // layer beneath, so clicking inside the menu would close it. Rows and the search field
+            // are hit-tested first and are unaffected.
+            .clickable(interactionSource = null, indication = null) { }
             .background(colors.scrim.copy(alpha = 0.96f), RoundedCornerShape(PcCorners.Surface))
             .border(1.dp, colors.hairline, RoundedCornerShape(PcCorners.Surface))
             .padding(PcSpacing.Medium)
