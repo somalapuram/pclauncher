@@ -14,6 +14,13 @@ data class IconCacheKey(
     val userSerial: Long,
     val density: Int,
     val versionCode: Long,
+    /**
+     * Which treatment produced this bitmap (`design.icon.IconStyle.id`), and which revision of the
+     * pipeline. Without the style, switching theme would serve dark-glass tiles on a light desktop;
+     * without the version, changing the pipeline would leave old and new tiles side by side.
+     */
+    val styleId: String = "none",
+    val treatmentVersion: Int = 0,
 ) {
     /** Stable, filesystem-safe name for the disk tier. */
     fun diskName(): String = buildString {
@@ -21,14 +28,24 @@ data class IconCacheKey(
         append('-').append(userSerial)
         append('-').append(density)
         append('-').append(versionCode)
+        append('-').append(styleId)
+        append("-v").append(treatmentVersion)
     }
 
     companion object {
-        fun of(entry: AppEntry, userSerial: Long, density: Int) = IconCacheKey(
+        fun of(
+            entry: AppEntry,
+            userSerial: Long,
+            density: Int,
+            styleId: String = "none",
+            treatmentVersion: Int = 0,
+        ) = IconCacheKey(
             component = entry.key.component.flattenToShortString(),
             userSerial = userSerial,
             density = density,
             versionCode = entry.versionCode,
+            styleId = styleId,
+            treatmentVersion = treatmentVersion,
         )
     }
 }

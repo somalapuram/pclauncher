@@ -20,10 +20,20 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import com.somalapuram.pclauncher.core.apps.AppEntry
+import com.somalapuram.pclauncher.core.apps.AppInventory
+import com.somalapuram.pclauncher.core.design.PcGlyphs
+import com.somalapuram.pclauncher.desktop.BarStateFactory
+import com.somalapuram.pclauncher.feature.shell.bar.ShellBar
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import com.somalapuram.pclauncher.core.design.LocalPcColors
 import com.somalapuram.pclauncher.core.design.LocalSurfaceTreatment
 import com.somalapuram.pclauncher.core.design.PcCorners
@@ -40,28 +50,53 @@ import com.somalapuram.pclauncher.core.design.SurfaceTreatment
 @Composable
 fun HomeScreen(
     outcome: StartupOutcome,
+    inventory: StateFlow<AppInventory> = MutableStateFlow(AppInventory()),
+    iconFor: (AppEntry) -> android.graphics.drawable.Drawable? = { null },
     isDefaultHome: Boolean,
     onSetDefaultHome: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     safeModeApps: List<AppEntry> = emptyList(),
 ) {
-    Box(
-        modifier = modifier.fillMaxSize().safeDrawingPadding(),
-        contentAlignment = Alignment.Center,
-    ) {
-        when (outcome) {
-            is StartupOutcome.Ready -> Desktop(
-                environment = outcome.environment,
-                isDefaultHome = isDefaultHome,
-                onSetDefaultHome = onSetDefaultHome,
-            )
+    val apps by inventory.collectAsState()
 
-            is StartupOutcome.Fallback -> FallbackDesktop(
-                reason = outcome.reason,
-                onRetry = onRetry,
-                onSetDefaultHome = onSetDefaultHome,
-                apps = safeModeApps,
+    Column(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
+        Box(
+            modifier = Modifier.weight(1f).fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            when (outcome) {
+                is StartupOutcome.Ready -> Desktop(
+                    environment = outcome.environment,
+                    isDefaultHome = isDefaultHome,
+                    onSetDefaultHome = onSetDefaultHome,
+                )
+
+                is StartupOutcome.Fallback -> FallbackDesktop(
+                    reason = outcome.reason,
+                    onRetry = onRetry,
+                    onSetDefaultHome = onSetDefaultHome,
+                    apps = safeModeApps,
+                )
+            }
+        }
+
+        // The bar renders from the inventory Flow, so it appears with the desktop and fills in —
+        // an empty dock is a valid first frame, never a spinner (dock-taskbar.md requirement 8).
+        // Safe mode gets no bar: it must not depend on the inventory or the icon cache.
+        if (outcome is StartupOutcome.Ready) {
+            ShellBar(
+                state = BarStateFactory.from(apps, iconFor = iconFor),
+                startGlyph = PcGlyphs.Start,
+                onStartClick = {},
+                onDockItemClick = {},
+                onWindowFocus = {},
+                onWindowClose = {},
+                onShowDesktop = {},
+                modifier = Modifier.padding(
+                    horizontal = PcSpacing.Large,
+                    vertical = PcSpacing.Small,
+                ),
             )
         }
     }

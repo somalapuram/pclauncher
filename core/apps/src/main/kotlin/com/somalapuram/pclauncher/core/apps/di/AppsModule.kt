@@ -4,12 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
-import android.graphics.drawable.ColorDrawable
-import android.os.UserManager
 import com.somalapuram.pclauncher.core.apps.AppSource
-import com.somalapuram.pclauncher.core.apps.FileIconDiskStore
-import com.somalapuram.pclauncher.core.apps.IconCache
-import com.somalapuram.pclauncher.core.apps.LauncherAppsIconLoader
 import com.somalapuram.pclauncher.core.apps.DataStoreUsageStore
 import com.somalapuram.pclauncher.core.apps.LauncherAppsSource
 import com.somalapuram.pclauncher.core.apps.LocalUsageSignals
@@ -46,24 +41,6 @@ object AppsModule {
     @Singleton
     fun appInventoryRepository(source: AppSource): AppInventoryRepository =
         AppInventoryRepository(source, Dispatchers.IO)
-
-    @Provides
-    @Singleton
-    fun iconCache(@ApplicationContext context: Context): IconCache {
-        val userManager = context.getSystemService(UserManager::class.java)
-        return IconCache(
-            loader = LauncherAppsIconLoader(
-                context = context,
-                // Serial numbers survive a profile being removed and re-added; a raw user id does
-                // not, which is why the cache keys on the serial.
-                userFor = { serial -> runCatching { userManager.getUserForSerialNumber(serial) }.getOrNull() },
-            ),
-            diskStore = FileIconDiskStore(java.io.File(context.cacheDir, "icons")),
-            // Transparent, not a generic app glyph: a placeholder that looks like an icon reads as
-            // "this app has a blank icon" rather than "still loading".
-            placeholder = ColorDrawable(0x00000000),
-        )
-    }
 
     @Provides
     @Singleton

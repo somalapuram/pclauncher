@@ -4,7 +4,17 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.lifecycle.lifecycleScope
+import com.somalapuram.pclauncher.core.apps.AppInventory
+import com.somalapuram.pclauncher.core.apps.AppInventoryRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import android.graphics.drawable.Drawable
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.remember
+import com.somalapuram.pclauncher.core.apps.AppEntry
 import com.somalapuram.pclauncher.core.design.PcTheme
+import com.somalapuram.pclauncher.desktop.IconResolver
 import com.somalapuram.pclauncher.di.HomeEntryPoint
 import dagger.hilt.android.EntryPointAccessors
 
@@ -33,9 +43,18 @@ class HomeActivity : ComponentActivity() {
             emptyList()
         }
 
+        val inventory = startInventory()
+
         setContent {
-            PcTheme {
+            val dark = isSystemInDarkTheme()
+            // Rebuilt when the theme flips, so the dock reloads icons baked for the new palette
+            // rather than showing dark-glass tiles on a light desktop.
+            val iconFor = remember(dark) { iconResolverFor(dark) }
+
+            PcTheme(darkTheme = dark) {
                 HomeScreen(
+                    inventory = inventory,
+                    iconFor = iconFor,
                     outcome = outcome,
                     isDefaultHome = HomeRole.isDefault(this),
                     onSetDefaultHome = { startActivity(HomeRole.requestIntent(this)) },
@@ -44,6 +63,30 @@ class HomeActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    /**
+     * Kick the inventory off and hand back its stream.
+     *
+     * Guarded: a failure here must cost the dock, not the desktop (GATE 4). An inventory that never
+     * arrives leaves an empty dock, which is a valid frame.
+     */
+    private fun startInventory(): StateFlow<AppInventory> = runCatching {
+        val repository: AppInventoryRepository = entryPoint().appInventoryRepository()
+        repository.start(lifecycleScope)
+        repository.inventory
+    }.getOrElse { MutableStateFlow(AppInventory()) }
+
+    /**
+     * The dock's icon lookup, or a lookup that yields nothing.
+     *
+     * Guarded like everything else on this path: no icon cache costs the dock its artwork, not the
+     * user their desktop (GATE 4).
+     */
+    private fun iconResolverFor(darkTheme: Boolean): (AppEntry) -> Drawable? {
+        val cache = runCatching { entryPoint().iconCache() }.getOrNull() ?: return { null }
+        val resolver = IconResolver(applicationContext, cache, darkTheme = darkTheme)
+        return { entry -> resolver.iconFor(entry) }
     }
 
     private fun loadEnvironment(): DesktopEnvironment = entryPoint().desktopEnvironmentSource().load()

@@ -41,11 +41,18 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
   snap layouts, non-resizable apps. *Status: Planned.*
 - `windows/mission-control.md` — window overview. *Status: Planned.*
 
+### design
+- [`design/icon-treatment.md`](design/icon-treatment.md) — squircle tiles with gloss, rim light and
+  shadow, baked once into the icon cache; dark-glass and soft-clay palettes by theme.
+  *Status: Accepted · Implemented.*
+
 ### shell
 - `shell/overlay-service.md` — foreground service + `ComposeOverlayWindow`, focus discipline,
   restart recovery. *Status: Planned.*
 - `shell/menu-bar.md` — top bar, launcher-owned Window/View/Help menus. *Status: Planned.*
-- `shell/dock-taskbar.md` — dock with magnification + taskbar window chips. *Status: Planned.*
+- [`shell/dock-taskbar.md`](shell/dock-taskbar.md) — one bar: Start button, magnifying dock,
+  taskbar window chips, Show Desktop. Rendered in the HOME activity first; the overlay service
+  hosts the same composables later. *Status: Accepted · Partially implemented.*
 - `shell/start-menu.md` — Windows 11-style Start. *Status: Planned.*
 - `shell/command-palette.md` — Spotlight palette + `PaletteProvider`. *Status: Planned.*
 - `shell/system-tray.md` — clock, battery, volume, Wi-Fi, Bluetooth, notification popovers.
