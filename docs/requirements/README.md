@@ -53,7 +53,10 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 - [`shell/dock-taskbar.md`](shell/dock-taskbar.md) — one bar: Start button, magnifying dock,
   taskbar window chips, Show Desktop. Rendered in the HOME activity first; the overlay service
   hosts the same composables later. *Status: Accepted · Partially implemented.*
-- `shell/start-menu.md` — Windows 11-style Start. *Status: Planned.*
+- [`shell/start-menu.md`](shell/start-menu.md) — all apps + search, keyboard-first, right-click to
+  pin. *Status: Accepted · In progress.*
+- [`shell/pinning.md`](shell/pinning.md) — the `pins` store and pin/unpin from every surface that
+  lists an app. *Status: Accepted · In progress.*
 - `shell/command-palette.md` — Spotlight palette + `PaletteProvider`. *Status: Planned.*
 - `shell/system-tray.md` — clock, battery, volume, Wi-Fi, Bluetooth, notification popovers.
   *Status: Planned.*

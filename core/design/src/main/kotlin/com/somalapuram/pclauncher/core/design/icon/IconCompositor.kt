@@ -39,13 +39,19 @@ class IconCompositor(private val style: IconStyle) {
 
         // The shadow has to be drawn outside the tile, so the tile is inset by enough to leave
         // room for it. Without this the shadow is clipped by the bitmap edge and reads as a band.
-        val shadowRoom = sizePx * (style.shadowRadiusFraction + style.shadowOffsetFraction)
+        // Room for the shadow *and* the glow: both are drawn outside the tile, and a halo clipped
+        // by the bitmap edge reads as a band rather than as light.
+        val shadowRoom = sizePx * (
+            style.shadowRadiusFraction + style.shadowOffsetFraction + style.glowRadiusFraction
+        )
         val tilePath = squirclePath(size, inset = shadowRoom).asAndroidPath()
 
         drawShadow(canvas, size, shadowRoom, sizePx)
+        drawGlow(canvas, tilePath, appColor, sizePx)
         drawTile(canvas, tilePath, tile)
         drawGloss(canvas, tilePath, sizePx)
-        drawRim(canvas, tilePath, sizePx)
+        drawSpecular(canvas, tilePath, sizePx)
+        drawRim(canvas, tilePath, appColor, sizePx)
         drawGlyph(canvas, source, adaptive, sizePx, tilePath)
 
         return output
@@ -87,6 +93,30 @@ class IconCompositor(private val style: IconStyle) {
         canvas.restore()
     }
 
+    /**
+     * The app's colour bleeding out from under the tile.
+     *
+     * Drawn *before* the tile so only the halo escapes — this is what makes a near-black tile feel
+     * lit from within rather than merely dark, and it is the single biggest difference between the
+     * reference set and a flat masked icon.
+     */
+    private fun drawGlow(
+        canvas: Canvas,
+        path: android.graphics.Path,
+        appColor: Color,
+        sizePx: Int,
+    ) {
+        val alpha = style.glowAlpha
+        val radius = (sizePx * style.glowRadiusFraction).coerceAtLeast(1f)
+        if (alpha <= 0f) return
+
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = appColor.copy(alpha = alpha).toArgb()
+            maskFilter = BlurMaskFilter(radius, BlurMaskFilter.Blur.NORMAL)
+        }
+        canvas.drawPath(path, paint)
+    }
+
     private fun drawTile(canvas: Canvas, path: android.graphics.Path, tile: Color) {
         canvas.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = tile.toArgb() })
     }
@@ -113,7 +143,45 @@ class IconCompositor(private val style: IconStyle) {
         canvas.restore()
     }
 
-    private fun drawRim(canvas: Canvas, path: android.graphics.Path, sizePx: Int) {
+    /**
+     * A tight bright band just inside the top edge.
+     *
+     * The soft gloss alone reads as a tinted fill. Adding a narrow, much brighter band is what the
+     * eye interprets as a curved glossy surface catching a light — it is the "wet" look in the
+     * reference tiles, and it costs one more gradient at bake time.
+     */
+    private fun drawSpecular(canvas: Canvas, path: android.graphics.Path, sizePx: Int) {
+        val specularColor = style.specular
+        val stopY = sizePx * style.specularStop
+        if (specularColor.alpha <= 0f) return
+
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(
+                0f, 0f, 0f, stopY,
+                intArrayOf(specularColor.toArgb(), Color.Transparent.toArgb()),
+                floatArrayOf(0f, 1f),
+                Shader.TileMode.CLAMP,
+            )
+        }
+        canvas.save()
+        canvas.clipPath(path)
+        canvas.drawPaint(paint)
+        canvas.restore()
+    }
+
+    /**
+     * The lit edge — white along the top, the app's own colour along the bottom.
+     *
+     * A uniform white rim looks like a border. Letting the lower half pick up the app's colour is
+     * bounce light: it ties the rim to the glow underneath and is why the reference tiles read as
+     * objects rather than as stickers.
+     */
+    private fun drawRim(
+        canvas: Canvas,
+        path: android.graphics.Path,
+        appColor: Color,
+        sizePx: Int,
+    ) {
         val rimColor = style.rim
         val rimWidth = (sizePx * style.rimWidthFraction).coerceAtLeast(1f)
         if (rimColor.alpha <= 0f) return
@@ -121,7 +189,16 @@ class IconCompositor(private val style: IconStyle) {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             this.style = Paint.Style.STROKE
             strokeWidth = rimWidth
-            color = rimColor.toArgb()
+            shader = LinearGradient(
+                0f, 0f, 0f, sizePx.toFloat(),
+                intArrayOf(
+                    rimColor.toArgb(),
+                    Color.Transparent.toArgb(),
+                    appColor.copy(alpha = rimColor.alpha * 0.9f).toArgb(),
+                ),
+                floatArrayOf(0f, 0.55f, 1f),
+                Shader.TileMode.CLAMP,
+            )
         }
         canvas.drawPath(path, paint)
     }
