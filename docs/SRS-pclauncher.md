@@ -67,7 +67,7 @@ every phase before §14 phase 10 — but Stage A's architecture must not make it
 | UI | **Jetpack Compose**. Material 3 as a base only, restyled per §6. `androidx.compose:compose-bom` |
 | IDE | **Android Studio** is the primary development environment (Stage A). The build must *also* work from the CLI via the Gradle wrapper — CI and Stage B need it |
 | Build | Gradle Kotlin DSL + version catalog (`gradle/libs.versions.toml`), AGP 8.x |
-| SDK | `compileSdk`/`targetSdk` = the newest installed platform (**36** today); `minSdk 31`. Bump to the Android 17 platform SDK when Stage B lands — read the level from the AOSP tree then, do not guess it now |
+| SDK | `compileSdk`/`targetSdk` = **37** (Android 17, `platforms;android-37.0`) — the same platform level the `pc_x86_64` build ships, so Stage A compiles against the Stage B target from day one. `minSdk 31` |
 | Architecture | Feature-first Gradle modules, unidirectional data flow, Compose state hoisting |
 | DI | Hilt |
 | Async | Coroutines + `Flow`. Nothing blocking on the main thread |
@@ -90,7 +90,7 @@ anything windowing-related. The relevant facts, as of this writing:
 
 | | |
 |---|---|
-| Platform | AOSP `android17-release`, product `pc_x86_64`, `PRODUCT_CHARACTERISTICS := tablet` |
+| Platform | AOSP `android17-release` (**API 37**), product `pc_x86_64`, `PRODUCT_CHARACTERISTICS := tablet` |
 | Hardware | Bare-metal Intel Meteor Lake, eDP-1 @ 60 Hz, 2560×1600, keyboard + mouse |
 | Current home app | `Launcher3QuickStep` (via `handheld_system_ext.mk`) — **pclauncher replaces this** |
 | Rendering | ⚠️ **Software only** — SwiftShader + ANGLE. No Mesa yet. The UI is measurably sluggish |
@@ -475,8 +475,11 @@ consequence once, never re-prompt automatically.
 - **Desktop grid:** 96 dp cells, icons top-left, sorted by name on first run.
 - **Theme:** follow system; accent from wallpaper with a manual override.
 - **Max tracked windows:** 24; the taskbar scrolls beyond that.
-- **Stage A test targets:** an x86_64 emulator at 2560×1600 with freeform enabled in developer
-  options (mirrors the real panel), plus any Android 12+ tablet.
+- **Stage A test targets:** an x86_64 AVD on `system-images;android-37.0;google_apis;x86_64` at
+  2560×1600 / 240 dpi with freeform enabled in developer options — same platform level and panel as
+  `pc_x86_64`. Secondary: the `android-desktop` AVD (`system-images;android-34;android-desktop;x86_64`),
+  which boots a real desktop-windowing environment and is the closest emulator analogue to the
+  target's WM Shell behaviour.
 - **Distribution:** Stage A — debug APK from Android Studio / the wrapper. Stage B — built in-tree.
   No Play Store.
 

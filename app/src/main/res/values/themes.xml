@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      A home-screen theme: transparent window over the live wallpaper. windowShowWallpaper is what
+      lets the desktop read as a desktop rather than a blank surface, and it is the same surface
+      that renders behind desktop windows on pc_x86_64 (SRS §4.1, config_showHomeBehindDesktop).
+    -->
+    <style name="Theme.PcLauncher" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowShowWallpaper">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+    </style>
+</resources>

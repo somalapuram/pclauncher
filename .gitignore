@@ -1,13 +1,25 @@
-*.iml
+# Gradle
 .gradle/
-/local.properties
-/.idea/
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# Local config -- machine-specific, never committed
 local.properties
+
+# IDE
+*.iml
+.idea/
+.kotlin/
+captures/
+
+# Build outputs
 *.apk
 *.aab
-/out/
+
+# Native
+.externalNativeBuild
+.cxx
+
+# OS
+.DS_Store

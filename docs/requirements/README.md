@@ -26,8 +26,8 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 *(No slices written yet. Add a line here as each is sliced.)*
 
 ### foundation
-- `foundation/scaffolding.md` — Gradle + version catalog, module skeleton, Hilt, Compose design
-  tokens, HOME activity owning `ROLE_HOME`, green test harness. *Status: Planned.*
+- [`foundation/scaffolding.md`](foundation/scaffolding.md) — Gradle + version catalog, module skeleton, Hilt, Compose design
+  tokens, HOME activity owning `ROLE_HOME`, green test harness. *Status: Accepted · Implemented.*
 
 ### launch
 - `launch/app-inventory.md` — `LauncherApps` inventory, icon cache, work profiles, incremental
