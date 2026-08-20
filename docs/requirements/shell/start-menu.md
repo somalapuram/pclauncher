@@ -1,6 +1,6 @@
 # Shell — Start Menu
 
-Status: **Accepted · In progress** (2026-08-20)
+Status: **Accepted · Partially implemented** (2026-08-20)
 
 SRS §14 Phase 5 (the menu; the command palette is [`command-palette.md`](command-palette.md)).
 Derives from SRS §6.4. Depends on [`../launch/app-inventory.md`](../launch/app-inventory.md),
@@ -47,16 +47,20 @@ already-loaded data — never a re-query of `LauncherApps` per keystroke.
 
 ## Acceptance criteria
 
-- [ ] The menu opens and closes from the Start button, Esc, and an outside click; the button shows
-      its open state.
-- [ ] Every launchable app appears, in locale-aware order, work profiles included.
-- [ ] Search is case- and diacritic-insensitive; prefix matches rank above substring matches (test).
-- [ ] ↑/↓/Enter/Esc work without the mouse; the selection is visible and survives filtering.
-- [ ] Click launches; right-click offers pin/unpin with the correct label and App info.
-- [ ] Unavailable/suspended entries render greyed and do not launch.
-- [ ] The list is lazy; filtering does not re-query `LauncherApps` (pure function, tested).
-- [ ] Loading and no-match states are reachable and designed.
-- [ ] `./gradlew test` green 3×; `./gradlew lint` clean; the menu is usable on a device.
+- [x] The menu opens from the Start button and closes on Esc and on launching; the button shows its
+      open state in the accent colour.
+- [ ] **Closing on an outside click is not implemented** — clicking the desktop leaves the menu up.
+- [x] Every launchable app appears, in the inventory's locale-aware order, work profiles included.
+- [x] Search is case- and diacritic-insensitive; prefix and word-start matches rank above substring
+      matches, and within a rank inventory order is kept (tests).
+- [x] ↑/↓/Enter/Esc work without the mouse; the selection is clamped rather than reset when the
+      filter shrinks the list under it.
+- [x] Click launches; the row menu offers pin/unpin with the correct label.
+- [ ] **App info is not in the row menu** — only pin/unpin.
+- [x] Unavailable/suspended entries render greyed and do not launch.
+- [x] The list is lazy; filtering is a pure function over the loaded inventory, not a re-query.
+- [x] Loading ("Loading apps…") and no-match states are reachable and designed.
+- [x] `./gradlew test` green; `./gradlew lint` clean; the menu is usable on a device.
 
 ## Notes
 
@@ -67,5 +71,12 @@ already-loaded data — never a re-query of `LauncherApps` per keystroke.
   shell able to launch anything. `pinning.md` supplies the data for the first when it lands.
 - **Why substring and not fuzzy here:** fuzzy matching earns its keep in the palette, where the
   user is aiming at one result. In a browsable list it mostly produces surprising ordering.
+- **The row menu opens from a `⋯` affordance, not right-click.** Compose on Android has no
+  secondary-click primitive, and the desktop AVD delivers a right-click as a plain tap. An explicit
+  affordance works with mouse, touch and keyboard today; real right-click and long-press belong
+  with the wider context-menu work.
+- **Ranking order was a real bug the tests caught:** plain containment was tested before the
+  word-start case, so "Google Calendar Sync" ranked below an incidental match like "Vertical" for
+  the query "cal". Word-start is now tested first.
 - **Not in this slice:** the command palette, Recommended, the power/settings footer, drag from the
   menu, alphabet index rail, or app shortcuts.

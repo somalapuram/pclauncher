@@ -4,11 +4,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import android.os.UserManager
 import androidx.lifecycle.lifecycleScope
-import com.somalapuram.pclauncher.core.apps.AppInventory
-import com.somalapuram.pclauncher.core.apps.AppInventoryRepository
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import com.somalapuram.pclauncher.desktop.AppLauncher
+import com.somalapuram.pclauncher.desktop.ShellController
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.remember
@@ -29,11 +28,16 @@ import dagger.hilt.android.EntryPointAccessors
  */
 class HomeActivity : ComponentActivity() {
 
+    private var shell: ShellController? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         val outcome = resolveStartup(runCatching { loadEnvironment() })
+        // Built inside the same guard as everything else on this path: no controller means an
+        // empty dock and desktop, not a dead home screen (GATE 4).
+        shell = runCatching { buildController() }.getOrNull()?.also { it.start() }
 
         // Only paid for when we are actually in safe mode, and guarded again on the way in:
         // the listing is a best effort, not a second thing that can strand the user.
@@ -43,7 +47,9 @@ class HomeActivity : ComponentActivity() {
             emptyList()
         }
 
-        val inventory = startInventory()
+        // The inventory now belongs to the ViewModel, which also owns pin state so the dock, the
+        // Start menu and the desktop cannot disagree about what is pinned.
+        val launcher = AppLauncher(applicationContext)
 
         setContent {
             val dark = isSystemInDarkTheme()
@@ -53,8 +59,11 @@ class HomeActivity : ComponentActivity() {
 
             PcTheme(darkTheme = dark) {
                 HomeScreen(
-                    inventory = inventory,
+                    inventory = shell?.inventory ?: EmptyInventory,
+                    pins = shell?.pins ?: EmptyPins,
                     iconFor = iconFor,
+                    onLaunchApp = { launcher.launch(it) },
+                    onTogglePin = { entry -> shell?.togglePin(entry) },
                     outcome = outcome,
                     isDefaultHome = HomeRole.isDefault(this),
                     onSetDefaultHome = { startActivity(HomeRole.requestIntent(this)) },
@@ -65,17 +74,25 @@ class HomeActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Kick the inventory off and hand back its stream.
-     *
-     * Guarded: a failure here must cost the dock, not the desktop (GATE 4). An inventory that never
-     * arrives leaves an empty dock, which is a valid frame.
-     */
-    private fun startInventory(): StateFlow<AppInventory> = runCatching {
-        val repository: AppInventoryRepository = entryPoint().appInventoryRepository()
-        repository.start(lifecycleScope)
-        repository.inventory
-    }.getOrElse { MutableStateFlow(AppInventory()) }
+    private fun buildController(): ShellController {
+        val entryPoint = entryPoint()
+        val userSerial = runCatching {
+            getSystemService(UserManager::class.java)
+                .getSerialNumberForUser(android.os.Process.myUserHandle())
+        }.getOrDefault(0L)
+
+        return ShellController(
+            repository = entryPoint.appInventoryRepository(),
+            pinStore = entryPoint.pinStore(),
+            scope = lifecycleScope,
+            userSerial = userSerial,
+        )
+    }
+
+    override fun onDestroy() {
+        shell?.stop()
+        super.onDestroy()
+    }
 
     /**
      * The dock's icon lookup, or a lookup that yields nothing.
@@ -94,3 +111,11 @@ class HomeActivity : ComponentActivity() {
     private fun entryPoint(): HomeEntryPoint =
         EntryPointAccessors.fromApplication(applicationContext, HomeEntryPoint::class.java)
 }
+
+/** Stand-ins for a shell that could not be built, so the desktop still renders. */
+private val EmptyInventory = kotlinx.coroutines.flow.MutableStateFlow(
+    com.somalapuram.pclauncher.core.apps.AppInventory(),
+)
+private val EmptyPins = kotlinx.coroutines.flow.MutableStateFlow(
+    com.somalapuram.pclauncher.core.data.pins.Pins(),
+)

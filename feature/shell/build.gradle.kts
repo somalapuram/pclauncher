@@ -42,6 +42,7 @@ dependencies {
 
     implementation(projects.core.design)
     implementation(projects.core.apps)
+    implementation(projects.core.data)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

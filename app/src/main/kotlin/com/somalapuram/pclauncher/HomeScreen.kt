@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.widthIn
@@ -31,7 +32,15 @@ import com.somalapuram.pclauncher.core.apps.AppEntry
 import com.somalapuram.pclauncher.core.apps.AppInventory
 import com.somalapuram.pclauncher.core.design.PcGlyphs
 import com.somalapuram.pclauncher.desktop.BarStateFactory
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.somalapuram.pclauncher.core.data.pins.Pins
 import com.somalapuram.pclauncher.feature.shell.bar.ShellBar
+import com.somalapuram.pclauncher.feature.shell.desktop.DesktopAppGrid
+import com.somalapuram.pclauncher.feature.shell.start.PinResolution
+import com.somalapuram.pclauncher.feature.shell.start.StartMenu
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import com.somalapuram.pclauncher.core.design.LocalPcColors
@@ -51,7 +60,10 @@ import com.somalapuram.pclauncher.core.design.SurfaceTreatment
 fun HomeScreen(
     outcome: StartupOutcome,
     inventory: StateFlow<AppInventory> = MutableStateFlow(AppInventory()),
+    pins: StateFlow<Pins> = MutableStateFlow(Pins()),
     iconFor: (AppEntry) -> android.graphics.drawable.Drawable? = { null },
+    onLaunchApp: (AppEntry) -> Unit = {},
+    onTogglePin: (AppEntry) -> Unit = {},
     isDefaultHome: Boolean,
     onSetDefaultHome: () -> Unit,
     onRetry: () -> Unit,
@@ -59,6 +71,11 @@ fun HomeScreen(
     safeModeApps: List<AppEntry> = emptyList(),
 ) {
     val apps by inventory.collectAsState()
+    val currentPins by pins.collectAsState()
+    var startOpen by remember { mutableStateOf(false) }
+
+    val pinnedIds = currentPins.items.map { it.component }
+    val isPinned = { entry: AppEntry -> PinResolution.isPinned(pinnedIds, entry) }
 
     Column(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
         Box(
@@ -70,6 +87,11 @@ fun HomeScreen(
                     environment = outcome.environment,
                     isDefaultHome = isDefaultHome,
                     onSetDefaultHome = onSetDefaultHome,
+                    apps = apps.entries,
+                    isPinned = isPinned,
+                    onLaunch = onLaunchApp,
+                    onTogglePin = onTogglePin,
+                    iconFor = iconFor,
                 )
 
                 is StartupOutcome.Fallback -> FallbackDesktop(
@@ -84,12 +106,33 @@ fun HomeScreen(
         // The bar renders from the inventory Flow, so it appears with the desktop and fills in —
         // an empty dock is a valid first frame, never a spinner (dock-taskbar.md requirement 8).
         // Safe mode gets no bar: it must not depend on the inventory or the icon cache.
+        if (outcome is StartupOutcome.Ready && startOpen) {
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = PcSpacing.Large),
+                contentAlignment = Alignment.BottomStart,
+            ) {
+                StartMenu(
+                    entries = apps.entries,
+                    isPinned = isPinned,
+                    onLaunch = { onLaunchApp(it); startOpen = false },
+                    onTogglePin = onTogglePin,
+                    onDismiss = { startOpen = false },
+                    iconFor = iconFor,
+                )
+            }
+        }
+
         if (outcome is StartupOutcome.Ready) {
+            val docked = PinResolution.resolve(apps.entries, pinnedIds)
             ShellBar(
-                state = BarStateFactory.from(apps, iconFor = iconFor),
+                state = BarStateFactory.from(apps.copy(entries = docked), iconFor = iconFor),
                 startGlyph = PcGlyphs.Start,
-                onStartClick = {},
-                onDockItemClick = {},
+                isStartOpen = startOpen,
+                onStartClick = { startOpen = !startOpen },
+                onDockItemClick = { item ->
+                    docked.firstOrNull { it.key.component.flattenToShortString() == item.id }
+                        ?.let(onLaunchApp)
+                },
                 onWindowFocus = {},
                 onWindowClose = {},
                 onShowDesktop = {},
@@ -107,7 +150,26 @@ private fun Desktop(
     environment: DesktopEnvironment,
     isDefaultHome: Boolean,
     onSetDefaultHome: () -> Unit,
+    apps: List<AppEntry>,
+    isPinned: (AppEntry) -> Boolean,
+    onLaunch: (AppEntry) -> Unit,
+    onTogglePin: (AppEntry) -> Unit,
+    iconFor: (AppEntry) -> android.graphics.drawable.Drawable?,
 ) {
+    if (apps.isNotEmpty()) {
+        DesktopAppGrid(
+            entries = apps,
+            isPinned = isPinned,
+            onLaunch = onLaunch,
+            onTogglePin = onTogglePin,
+            iconFor = iconFor,
+        )
+        if (!isDefaultHome) {
+            SetHomePrompt(onSetDefaultHome)
+        }
+        return
+    }
+
     // Placeholder only. The icon grid, folders, and widgets arrive with
     // docs/requirements/desktop/icon-grid.md; the dock and taskbar with shell/overlay-service.md.
     ShellCard {
@@ -177,6 +239,17 @@ private fun FallbackDesktop(
                     )
                 }
             }
+        }
+    }
+}
+
+/** Shown over the grid until pclauncher owns the home role. */
+@Composable
+private fun SetHomePrompt(onSetDefaultHome: () -> Unit) {
+    ShellCard {
+        Text("pclauncher is not your home screen yet", color = LocalPcColors.current.onSurface, fontSize = 15.sp)
+        TextButton(onClick = onSetDefaultHome) {
+            Text("Set as default home", color = LocalPcColors.current.accent)
         }
     }
 }

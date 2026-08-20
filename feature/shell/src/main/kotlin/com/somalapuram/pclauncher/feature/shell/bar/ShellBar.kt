@@ -2,6 +2,7 @@ package com.somalapuram.pclauncher.feature.shell.bar
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,6 +50,7 @@ import com.somalapuram.pclauncher.core.design.SurfaceTreatment
 fun ShellBar(
     state: BarState,
     startGlyph: ImageVector,
+    isStartOpen: Boolean = false,
     onStartClick: () -> Unit,
     onDockItemClick: (DockItem) -> Unit,
     onWindowFocus: (WindowChip) -> Unit,
@@ -106,7 +108,7 @@ fun ShellBar(
         verticalAlignment = Alignment.Bottom,
     ) {
         StartButton(
-            isOpen = state.isStartOpen,
+            isOpen = isStartOpen || state.isStartOpen,
             onClick = onStartClick,
             glyph = startGlyph,
             modifier = Modifier.align(Alignment.CenterVertically),
@@ -130,7 +132,10 @@ fun ShellBar(
                         item = item,
                         scale = DockMagnification.scaleAt(index, pointerIndex),
                         painter = bitmapPainterFor(item.icon),
-                        modifier = Modifier.clickableItem { onDockItemClick(item) },
+                        modifier = Modifier.clickable(
+                            interactionSource = null,
+                            indication = null,
+                        ) { onDockItemClick(item) },
                     )
                 }
             }
@@ -170,24 +175,8 @@ private fun ShowDesktopHandle(onClick: () -> Unit, modifier: Modifier = Modifier
             .width(6.dp)
             .height(28.dp)
             .background(colors.hairline, RoundedCornerShape(50))
-            .clickableItem(onClick),
+            .clickable(interactionSource = null, indication = null, onClick = onClick),
     )
 }
-
-/** Clicks without a ripple — the shell's own surfaces state-change instead (SRS §6.1). */
-private fun Modifier.clickableItem(onClick: () -> Unit): Modifier = this.then(
-    Modifier.pointerInput(onClick) {
-        awaitPointerEventScope {
-            while (true) {
-                awaitPointerEvent()
-                val event = awaitPointerEvent()
-                if (event.changes.any { it.changedToUp() }) onClick()
-            }
-        }
-    },
-)
-
-private fun androidx.compose.ui.input.pointer.PointerInputChange.changedToUp(): Boolean =
-    !pressed && previousPressed
 
 private const val MagnifiedExtraHeight = 14f

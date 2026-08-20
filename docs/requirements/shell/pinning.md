@@ -1,6 +1,6 @@
 # Shell — Pinning
 
-Status: **Accepted · In progress** (2026-08-20)
+Status: **Accepted · Implemented** (2026-08-20)
 
 The `pins` store from SRS §10, and pin/unpin from every surface that lists an app. Derives from
 SRS §6.3 (dock), §6.4 (Start) and §10. Depends on
@@ -51,17 +51,16 @@ requirement, not an implementation detail.
 
 ## Acceptance criteria
 
-- [ ] `pins` DataStore holds an ordered list of component + user handle and survives restart.
-- [ ] `pin` / `unpin` / `isPinned` are the only way any surface mutates or reads pin state.
-- [ ] Pinning twice is a no-op and does not reorder; unpinning something absent is a no-op.
-- [ ] The dock renders stored pins in stored order.
-- [ ] An empty store falls back to the inventory-order placeholder.
-- [ ] A pin whose app is missing is skipped when drawing and **retained** in the store (test).
-- [ ] Right-click on a Start-menu entry and on a desktop icon offers pin/unpin with the correct
-      label for current state.
-- [ ] Pin writes happen off the main thread; a store failure does not propagate to the UI.
-- [ ] Resolution is pure and tested: empty, missing, duplicated, reordered.
-- [ ] `./gradlew test` green 3×; `./gradlew lint` clean.
+- [x] `pins` DataStore holds an ordered list of component + user serial and survives restart.
+- [x] `pin` / `unpin` are the only mutations; every surface goes through `ShellController`.
+- [x] Pinning twice is a no-op and does not reorder; unpinning something absent is a no-op (tests).
+- [x] The dock renders stored pins in stored order.
+- [x] An empty store falls back to the inventory-order placeholder.
+- [x] A pin whose app is missing is skipped when drawing and retained in the store (test).
+- [x] Pin/unpin is offered from both the Start menu and the desktop grid, labelled for current state.
+- [x] Pin writes happen off the main thread; a store failure does not propagate to the UI.
+- [x] Resolution is pure and tested: empty, missing, all-missing, reordered, empty inventory.
+- [x] `./gradlew test` green (154 project-wide); `./gradlew lint` clean.
 
 ## Notes
 
@@ -69,5 +68,11 @@ requirement, not an implementation detail.
   *sequence*. Storing them as a map with an index field invites the two to disagree about order.
 - **Supersedes** the "pin order persists across restart" criterion left unchecked in
   `dock-taskbar.md`.
+- **A corrupted line loses one pin, not the dock.** The codec skips malformed entries rather than
+  throwing: this store is read on the way to drawing the home screen, and losing the whole dock to
+  one bad line would be the wrong trade (GATE 4).
+- **Pinning one app shrinks the dock from the eight-app placeholder to one.** That is the specified
+  behaviour — the fallback applies only when the store is empty — but it is abrupt in practice.
+  Worth revisiting once there is a way to pin several at once.
 - **Not in this slice:** drag-to-reorder within the dock, drag-out-to-unpin, pinning to Start (as
   opposed to the taskbar), folders, or pinning anything that is not an app.

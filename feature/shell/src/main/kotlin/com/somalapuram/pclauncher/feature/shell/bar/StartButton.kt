@@ -4,6 +4,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -63,6 +64,12 @@ fun StartButton(
         modifier = modifier
             // ≥ 44 dp even inside a ≤ 64 dp bar (SRS §6.1 principle 3).
             .size(PcSize.MinTouchTarget)
+            .clickable(
+                interactionSource = interactionSource,
+                // No ripple: the shell's surfaces state-change instead (SRS §6.1).
+                indication = null,
+                onClick = onClick,
+            )
             .semantics { contentDescription = "Start" },
         contentAlignment = Alignment.Center,
     ) {
