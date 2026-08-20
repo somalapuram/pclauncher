@@ -33,8 +33,17 @@ Two AVDs, both x86_64 with KVM:
 
 | AVD | Image | Why |
 |---|---|---|
-| `pclauncher_pc_api37` | `android-37.0;google_apis` | **Primary.** 2560×1600 at 240 dpi — the same panel and density as `pc_x86_64` (SRS §4). |
-| `pclauncher_desktop_api34` | `android-34;android-desktop` | **Secondary.** Boots a real desktop-windowing environment, the closest emulator analogue to WM Shell on the target. |
+| `pclauncher_desktop_api34` | `android-34;android-desktop` | **Use this one.** Boots a real desktop-windowing environment — the closest emulator analogue to WM Shell on `pc_x86_64`, and currently the only image the app will launch on. |
+| `pclauncher_pc_api37` | `android-37.0;google_apis` | 2560×1600 at 240 dpi, matching the target panel and platform level — but **it cannot launch third-party apps** (see below). |
+
+### The android-37.0 image cannot run third-party apps
+
+`am start` returns *"Activity class does not exist"* for **every** component in an installed
+package — including `androidx.compose.ui.tooling.PreviewActivity`, which comes from a Google
+library — while `dumpsys package` shows the activities correctly registered and preinstalled apps
+launch normally. `dumpsys` also reports `ceDataInode=0`, so credential-encrypted storage was never
+prepared for the app. The identical APK runs on the `android-desktop` image, so this is the image,
+not the code. Until it is resolved, build against SDK 37 but **run on `pclauncher_desktop_api34`**.
 
 ```sh
 $ANDROID_HOME/emulator/emulator -avd pclauncher_pc_api37 -no-snapshot -gpu swiftshader_indirect

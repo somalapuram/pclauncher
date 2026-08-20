@@ -30,8 +30,9 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
   tokens, HOME activity owning `ROLE_HOME`, green test harness. *Status: Accepted · Implemented.*
 
 ### launch
-- `launch/app-inventory.md` — `LauncherApps` inventory, icon cache, work profiles, incremental
-  updates, usage/recency. *Status: Planned.*
+- [`launch/app-inventory.md`](launch/app-inventory.md) — `LauncherApps` inventory keyed by
+  (component, user), icon cache, work/private profiles, incremental deltas, usage/recency.
+  *Status: Accepted · In progress.*
 
 ### windows
 - `windows/capability-tiers.md` — `WindowBackend` interface + T0, runtime tier detection, the
