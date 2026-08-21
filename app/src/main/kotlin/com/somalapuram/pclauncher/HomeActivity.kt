@@ -19,6 +19,12 @@ import androidx.compose.runtime.getValue
 import com.somalapuram.pclauncher.desktop.IconResolver
 import com.somalapuram.pclauncher.feature.shell.tray.SystemTraySource
 import com.somalapuram.pclauncher.feature.shell.tray.TrayState
+import com.somalapuram.pclauncher.feature.shell.widget.BindOutcome
+import com.somalapuram.pclauncher.feature.shell.widget.WidgetChoice
+import com.somalapuram.pclauncher.feature.shell.widget.cellsFor
+import com.somalapuram.pclauncher.widget.WidgetController
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.somalapuram.pclauncher.di.HomeEntryPoint
 import dagger.hilt.android.EntryPointAccessors
 
@@ -34,6 +40,18 @@ import dagger.hilt.android.EntryPointAccessors
 class HomeActivity : ComponentActivity() {
 
     private var shell: ShellController? = null
+
+    /** Built lazily and guarded: no widget host must ever cost the user their desktop (GATE 4). */
+    private val widgets: WidgetController? by lazy {
+        runCatching { WidgetController(applicationContext) }.getOrNull()
+    }
+
+    /** The id being bound right now. Held so every failure path can release it. */
+    private var pendingWidgetId: Int = WidgetController.INVALID_ID
+    private var pendingProvider: android.appwidget.AppWidgetProviderInfo? = null
+
+    /** Chosen against the *effective* layout, so a widget never lands on top of an icon. */
+    private var pendingCell: com.somalapuram.pclauncher.core.data.layout.DesktopCell? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,6 +73,7 @@ class HomeActivity : ComponentActivity() {
         // The inventory now belongs to the ViewModel, which also owns pin state so the dock, the
         // Start menu and the desktop cannot disagree about what is pinned.
         val launcher = AppLauncher(applicationContext)
+        widgets?.startListening()
 
         val traySource = SystemTraySource(applicationContext)
 
@@ -77,6 +96,9 @@ class HomeActivity : ComponentActivity() {
                     onPlace = { entry, cell -> shell?.place(entry, cell) },
                     tray = tray,
                     onChangeWallpaper = { openWallpaperPicker() },
+                    widgetChoices = { widgetChoices() },
+                    onPickWidget = { choice, cell -> beginAddWidget(choice.id, cell) },
+                    widgetViewFor = { id -> widgets?.createView(id) },
                     outcome = outcome,
                     isDefaultHome = HomeRole.isDefault(this),
                     onSetDefaultHome = { startActivity(HomeRole.requestIntent(this)) },
@@ -117,7 +139,100 @@ class HomeActivity : ComponentActivity() {
 
     override fun onDestroy() {
         shell?.stop()
+        widgets?.stopListening()
         super.onDestroy()
+    }
+
+    /** Providers as the picker shows them, sized in desktop cells. */
+    fun widgetChoices(): List<WidgetChoice> {
+        val controller = widgets ?: return emptyList()
+        val cell = resources.displayMetrics.let { 96 }
+        return controller.availableProviders().map { info ->
+            WidgetChoice(
+                id = info.provider.flattenToShortString(),
+                label = runCatching { info.loadLabel(packageManager) }.getOrNull() ?: info.provider.className,
+                preview = runCatching { info.loadPreviewImage(this, 0) }.getOrNull()
+                    ?: runCatching { info.loadIcon(this, 0) }.getOrNull(),
+                columns = cellsFor(info.minWidth, cell),
+                rows = cellsFor(info.minHeight, cell),
+            )
+        }
+    }
+
+    /**
+     * Start adding a widget: allocate, then try to bind without troubling the user.
+     *
+     * The order is the protocol — allocate, bind, configure, only then show. Folding steps together
+     * yields a blank rectangle and no error.
+     */
+    fun beginAddWidget(choiceId: String, cell: com.somalapuram.pclauncher.core.data.layout.DesktopCell) {
+        val controller = widgets ?: return
+        val provider = controller.availableProviders()
+            .firstOrNull { it.provider.flattenToShortString() == choiceId } ?: return
+
+        val id = controller.allocateId()
+        if (id == WidgetController.INVALID_ID) return
+
+        pendingWidgetId = id
+        pendingProvider = provider
+        pendingCell = cell
+
+        when (controller.bind(id, provider)) {
+            BindOutcome.Bound -> continueAfterBind()
+            BindOutcome.NeedsUserConsent -> runCatching {
+                startActivityForResult(
+                    controller.bindConsentIntent(id, provider),
+                    WidgetController.REQUEST_BIND,
+                )
+            }.onFailure { abandonPendingWidget() }
+
+            BindOutcome.Failed -> abandonPendingWidget()
+        }
+    }
+
+    /** Bound. Configure if the provider asks for it, otherwise place it. */
+    private fun continueAfterBind() {
+        val controller = widgets ?: return abandonPendingWidget()
+        val id = pendingWidgetId
+        val provider = pendingProvider ?: return abandonPendingWidget()
+
+        val configure = controller.configureIntent(id, provider)
+        if (configure == null) {
+            placePendingWidget()
+        } else {
+            runCatching { startActivityForResult(configure, WidgetController.REQUEST_CONFIGURE) }
+                .onFailure { abandonPendingWidget() }
+        }
+    }
+
+    private fun placePendingWidget() {
+        val cell = pendingCell
+        if (cell != null) shell?.addWidget(pendingWidgetId, cell)
+        pendingWidgetId = WidgetController.INVALID_ID
+        pendingProvider = null
+        pendingCell = null
+    }
+
+    /** Any failure releases the id — otherwise a cancelled picker leaks one every time. */
+    private fun abandonPendingWidget() {
+        widgets?.releaseId(pendingWidgetId)
+        pendingWidgetId = WidgetController.INVALID_ID
+        pendingProvider = null
+        pendingCell = null
+    }
+
+    @Deprecated("startActivityForResult is what the widget bind and configure dialogs use")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        @Suppress("DEPRECATION")
+        super.onActivityResult(requestCode, resultCode, data)
+
+        when (requestCode) {
+            WidgetController.REQUEST_BIND ->
+                if (resultCode == RESULT_OK) continueAfterBind() else abandonPendingWidget()
+
+            WidgetController.REQUEST_CONFIGURE ->
+                if (resultCode == RESULT_OK) placePendingWidget() else abandonPendingWidget()
+        }
     }
 
     /**

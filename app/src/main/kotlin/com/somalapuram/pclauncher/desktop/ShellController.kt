@@ -8,6 +8,7 @@ import com.somalapuram.pclauncher.core.data.pins.PinStore
 import com.somalapuram.pclauncher.core.data.layout.DesktopCell
 import com.somalapuram.pclauncher.core.data.layout.DesktopLayout
 import com.somalapuram.pclauncher.core.data.layout.DesktopLayoutStore
+import com.somalapuram.pclauncher.core.data.layout.widgetPlacementId
 import com.somalapuram.pclauncher.core.data.pins.Pins
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,6 +54,17 @@ class ShellController(
             // back to auto-placement (GATE 4).
             runCatching { layoutStore.layout.collect { _layout.value = it } }
         }
+    }
+
+    /**
+     * Place a newly bound widget at a cell the caller chose.
+     *
+     * The cell comes from the *effective* layout — icons included — because the store only knows
+     * about placements the user has made, and picking a free cell from it alone drops the widget
+     * straight on top of an auto-placed icon.
+     */
+    fun addWidget(widgetId: Int, cell: DesktopCell) {
+        scope.launch { runCatching { layoutStore.place(widgetPlacementId(widgetId), cell) } }
     }
 
     /** Move an icon to a cell. A refused move leaves the store untouched and the icon springs back. */

@@ -39,6 +39,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.somalapuram.pclauncher.core.data.layout.DesktopCell
 import com.somalapuram.pclauncher.core.data.layout.DesktopLayout
+import com.somalapuram.pclauncher.core.data.layout.firstFreeCell
+import com.somalapuram.pclauncher.core.data.layout.withAutoPlacement
 import com.somalapuram.pclauncher.core.data.pins.Pins
 import com.somalapuram.pclauncher.feature.shell.bar.ShellBar
 import com.somalapuram.pclauncher.feature.shell.desktop.DesktopAppGrid
@@ -49,6 +51,8 @@ import com.somalapuram.pclauncher.feature.shell.interaction.DragState
 import com.somalapuram.pclauncher.feature.shell.interaction.DropTarget
 import com.somalapuram.pclauncher.feature.shell.start.StartMenu
 import com.somalapuram.pclauncher.feature.shell.tray.TrayState
+import com.somalapuram.pclauncher.feature.shell.widget.WidgetChoice
+import com.somalapuram.pclauncher.feature.shell.widget.WidgetPicker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import com.somalapuram.pclauncher.core.design.LocalPcColors
@@ -76,7 +80,9 @@ fun HomeScreen(
     onPlace: (AppEntry, DesktopCell) -> Unit = { _, _ -> },
     tray: TrayState = TrayState(),
     onChangeWallpaper: () -> Unit = {},
-    onAddWidget: () -> Unit = {},
+    widgetChoices: () -> List<WidgetChoice> = { emptyList() },
+    onPickWidget: (WidgetChoice, DesktopCell) -> Unit = { _, _ -> },
+    widgetViewFor: (Int) -> android.appwidget.AppWidgetHostView? = { null },
     isDefaultHome: Boolean,
     onSetDefaultHome: () -> Unit,
     onRetry: () -> Unit,
@@ -90,8 +96,15 @@ fun HomeScreen(
     var cellW by remember { mutableStateOf(0f) }
     var cellH by remember { mutableStateOf(0f) }
     var gridRows by remember { mutableStateOf(1) }
+    // Auto-placement happens once, here, so the desktop and anything looking for a free cell agree
+    // about what is occupied. Computed in the same column-major order the flowing grid used.
+    val effectiveLayout = remember(apps, layout, gridRows) {
+        withAutoPlacement(layout, apps.entries.map { it.key.component.flattenToShortString() }, gridRows)
+    }
+
     var desktopOrigin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
     var startOpen by remember { mutableStateOf(false) }
+    var widgetPickerOpen by remember { mutableStateOf(false) }
 
     val pinnedIds = currentPins.items.map { it.component }
     val isPinned = { entry: AppEntry -> PinResolution.isPinned(pinnedIds, entry) }
@@ -150,8 +163,9 @@ fun HomeScreen(
                     onDrag = { delta -> drag.moveTo(drag.position + delta, barTopY, barBottomY) },
                     onDragEnd = { finishDrag() },
                     onChangeWallpaper = onChangeWallpaper,
-                    onAddWidget = onAddWidget,
-                    layout = layout,
+                    onAddWidget = { widgetPickerOpen = true },
+                    widgetViewFor = widgetViewFor,
+                    layout = effectiveLayout,
                     onGridMetrics = { w, h, rows, origin ->
                         cellW = w; cellH = h; gridRows = rows; desktopOrigin = origin
                     },
@@ -206,6 +220,25 @@ fun HomeScreen(
 
     if (drag.isActive) {
         DragGhost(drag = drag, iconFor = iconFor)
+    }
+
+    if (widgetPickerOpen) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(interactionSource = null, indication = null) { widgetPickerOpen = false },
+        )
+        Box(modifier = Modifier.align(Alignment.Center)) {
+            WidgetPicker(
+                choices = widgetChoices(),
+                onPick = { choice ->
+                    // Against the *effective* layout, so a widget never lands on an icon.
+                    onPickWidget(choice, firstFreeCell(effectiveLayout, gridRows))
+                    widgetPickerOpen = false
+                },
+                onDismiss = { widgetPickerOpen = false },
+            )
+        }
     }
 
     if (outcome is StartupOutcome.Ready && startOpen) {
@@ -267,6 +300,7 @@ private fun Desktop(
     onDragEnd: () -> Unit,
     onChangeWallpaper: () -> Unit,
     onAddWidget: () -> Unit,
+    widgetViewFor: (Int) -> android.appwidget.AppWidgetHostView?,
     layout: DesktopLayout,
     onGridMetrics: (Float, Float, Int, androidx.compose.ui.geometry.Offset) -> Unit,
 ) {

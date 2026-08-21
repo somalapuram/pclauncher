@@ -35,7 +35,8 @@ import androidx.compose.ui.unit.sp
 import com.somalapuram.pclauncher.core.apps.AppEntry
 import com.somalapuram.pclauncher.core.data.layout.DesktopCell
 import com.somalapuram.pclauncher.core.data.layout.DesktopLayout
-import com.somalapuram.pclauncher.core.data.layout.withAutoPlacement
+import com.somalapuram.pclauncher.core.data.layout.widgetIdOf
+import com.somalapuram.pclauncher.feature.shell.widget.HostedWidget
 import com.somalapuram.pclauncher.core.design.LocalPcColors
 import com.somalapuram.pclauncher.core.design.PcCorners
 import com.somalapuram.pclauncher.core.design.PcSize
@@ -77,6 +78,8 @@ fun DesktopAppGrid(
      */
     onGridMetrics: (cellWidthPx: Float, cellHeightPx: Float, rows: Int, originInRoot: Offset) -> Unit =
         { _, _, _, _ -> },
+    /** Resolves a placed widget id to its hosted view. Null means the provider failed to inflate. */
+    widgetViewFor: (Int) -> android.appwidget.AppWidgetHostView? = { null },
 ) {
     val density = LocalDensity.current
     var desktopMenuOpen by remember { mutableStateOf(false) }
@@ -92,11 +95,10 @@ fun DesktopAppGrid(
     val cellHpx = with(density) { cellH.toPx() }
     val rows = if (cellHpx > 0f) (heightPx / cellHpx).toInt().coerceAtLeast(1) else 1
 
-    // Everything without a placement gets one, in the same column-major order the flowing grid
-    // used — so this change does not scramble an arrangement anyone is already used to.
-    val placed = remember(entries, layout, rows) {
-        withAutoPlacement(layout, entries.map { it.key.component.flattenToShortString() }, rows)
-    }
+    // [layout] arrives already auto-placed. Doing it here instead would keep the arrangement
+    // private to the UI, and anything else choosing a free cell — adding a widget — would think
+    // every cell was empty and drop straight on top of an icon.
+    val placed = layout
 
     Box(
         modifier = modifier
@@ -127,6 +129,22 @@ fun DesktopAppGrid(
             DropdownMenuItem(
                 text = { Text("Add widget") },
                 onClick = { onAddWidget(); desktopMenuOpen = false },
+            )
+        }
+
+        // Widgets share the icons' cell space, so they are drawn from the same placements.
+        placed.placements.forEach { placement ->
+            val widgetId = widgetIdOf(placement.id) ?: return@forEach
+            HostedWidget(
+                view = widgetViewFor(widgetId),
+                modifier = Modifier
+                    .offset {
+                        IntOffset(
+                            (placement.cell.column * cellWpx).roundToInt(),
+                            (placement.cell.row * cellHpx).roundToInt(),
+                        )
+                    }
+                    .size(width = cellW * 2, height = cellH * 2),
             )
         }
 

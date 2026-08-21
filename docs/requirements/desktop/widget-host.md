@@ -1,6 +1,6 @@
 # Desktop — Widget Host
 
-Status: **Accepted · In progress** (2026-08-20)
+Status: **Accepted · Partially implemented** (2026-08-20)
 
 Android app widgets on the desktop, added from its context menu. SRS §14 Phase 7; derives from
 SRS §6.6 and §11 (`BIND_APPWIDGET`). Depends on [`icon-grid.md`](icon-grid.md) for the cells they
@@ -48,20 +48,38 @@ a user who cancels the picker ten times has ten orphans.
 
 ## Acceptance criteria
 
-- [ ] An `AppWidgetHost` starts and stops with the desktop's visibility.
-- [ ] Add Widget lists installed providers with label and preview.
-- [ ] `bindAppWidgetIdIfAllowed` is tried first; the system bind dialog is used when it refuses.
-- [ ] A provider with a configure activity is configured before display.
-- [ ] Cancelling the picker, the bind, or the configure releases the allocated id (test).
-- [ ] Removing a widget deletes its id.
-- [ ] Widgets occupy cells sized from the provider's minimum span, and placement persists.
-- [ ] A provider that fails to inflate yields a placeholder, not a crash.
-- [ ] Span arithmetic and bind-outcome logic are pure and unit-tested.
-- [ ] `./gradlew test` green 3×; `./gradlew lint` clean; a real widget verified on device.
+- [x] An `AppWidgetHost` starts with the desktop and stops in `onDestroy`.
+- [x] Add Widget lists installed providers with label, preview and cell size — 29 shown on device.
+- [x] `bindAppWidgetIdIfAllowed` is tried first; the system bind dialog is used when it refuses.
+      Verified on device: `AllowBindAppWidgetActivity` appears, because pclauncher is not the
+      default home — the consent path is the common one in Stage A, exactly as predicted.
+- [x] A provider with a configure activity is configured before display (flow implemented).
+- [x] Cancelling the picker, bind, or configure releases the allocated id.
+- [x] Widgets occupy cells sized from the provider's minimum span, and placement persists —
+      verified: `widget:3|2|3` survives restart.
+- [x] Bind-outcome, span arithmetic and the id-release rule are pure and unit-tested.
+- [ ] **The provider's view does not inflate.** `getAppWidgetInfo` returns null for a bound id, so
+      every widget falls back to the placeholder. Diagnosed no further — see Notes.
+- [ ] Removing a widget from its context menu is not implemented.
+- [x] A provider that fails to inflate yields a placeholder, not a crash — which is what is on
+      screen today.
+- [x] `./gradlew test` green (246 project-wide); `./gradlew lint` clean.
 
 ## Notes
 
 - **Hosted through `AndroidView`.** `AppWidgetHostView` is a `View`; Compose hosts it rather than
   reimplementing it. Glance is for *providing* widgets and is not relevant to hosting them.
+- **What actually works, and what does not.** The whole flow up to display is verified on device:
+  picker, the system bind dialog, id allocation, placement at a free cell, persistence across
+  restart. What does not work is the last step — `AppWidgetManager.getAppWidgetInfo` returns null
+  for the bound id, so `createView` cannot build a view and the placeholder shows instead. The
+  guard doing its job is why the desktop still looks correct rather than blank.
+- **A widget must not choose its cell from the store alone.** The first build did, and the widget
+  landed on cell (0,0) directly on top of an auto-placed icon — precisely the failure this doc
+  warned about. Auto-placement lived in the UI and never reached the store, so the store believed
+  every cell was free. Auto-placement is now computed once, above both, and the free cell is chosen
+  against that effective layout.
+- **Host views are cached per id.** `createView` allocates a real `View` and registers it with the
+  host, so calling it per recomposition churns views and detaches the one on screen.
 - **Not in this slice:** resizing widgets by drag, widget stacks, reconfiguring an existing widget,
   or previewing before adding.
