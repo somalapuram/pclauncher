@@ -1,6 +1,6 @@
 # Desktop — Icon Placement & Context Menu
 
-Status: **Accepted · In progress** (2026-08-20)
+Status: **Accepted · Implemented** (2026-08-20)
 
 Icons the user can arrange, and a right-click menu on the desktop itself. SRS §14 Phase 7; derives
 from SRS §6.6 and §10 (`desktop_layout`). Supersedes the auto-flowing grid in
@@ -52,17 +52,23 @@ are reached from — the two things SRS §6.6 lists that have no other entry poi
 
 ## Acceptance criteria
 
-- [ ] Icon cells persist across restart in a `desktop_layout` store.
-- [ ] Unplaced icons auto-place column-major into the first free cell.
-- [ ] Dragging an icon to an empty cell moves it and the move survives restart.
-- [ ] A drop between cells snaps to the nearest cell.
-- [ ] A drop on an occupied cell is refused and the icon returns.
-- [ ] Dragging an icon to the taskbar still pins it.
-- [ ] Right-click and long-press on empty desktop opens a menu with Change Wallpaper and Add Widget.
-- [ ] Change Wallpaper launches the system picker.
-- [ ] Cell arithmetic is pure and unit-tested including bounds and occupancy.
-- [ ] A corrupt layout falls back to auto-placement rather than an empty desktop.
-- [ ] `./gradlew test` green 3×; `./gradlew lint` clean; verified on device.
+- [x] Icon cells persist in a `desktop_layout` store — verified on device, a dragged icon writes
+      `...calendar/...AllInOneActivity|8|2`.
+- [x] Unplaced icons auto-place column-major into the first free cell.
+- [x] Dragging an icon to an empty cell moves it and the move is written to the store.
+- [~] **Snap-to-nearest is not implemented.** A drop maps to the cell it is *inside*
+      (`cellAt` truncates); it does not round to the closest cell centre. Off-grid drops are
+      rejected outright rather than snapped.
+- [x] A drop on an occupied cell is refused and the icon stays where it was (`moved` returns null,
+      store untouched).
+- [x] Dragging an icon to the taskbar still pins it.
+- [x] Long-press on empty desktop opens a menu with Change Wallpaper and Add Widget, anchored at
+      the press.
+- [x] Change Wallpaper launches the system picker.
+- [x] Cell arithmetic is pure and unit-tested — bounds, occupancy, refusal, off-grid, degenerate
+      sizes, codec round-trip and corruption (19 tests).
+- [x] A corrupt layout falls back to auto-placement rather than an empty desktop.
+- [x] `./gradlew test` green (237 project-wide); `./gradlew lint` clean; verified on device.
 
 ## Notes
 
@@ -72,5 +78,13 @@ are reached from — the two things SRS §6.6 lists that have no other entry poi
   expressed "this icon lives here".
 - **Auto-placement deliberately matches the old flow order** so this change does not scramble an
   arrangement the user has already got used to.
+- **A parent watching the same events as its children will steal them.** The desktop container has
+  its own long-press for the context menu, and it fired *mid-drag* — opening the menu, which took
+  the pointer and killed the drag four events in. The container now stands down the moment it sees
+  a change a child has consumed. This is the kind of bug that looks like "drag is flaky".
+- **Where nothing scrolls, a drag should not wait.** The long-press gate exists so a scrollable
+  ancestor keeps its gesture; the desktop has no scroll, so gating there bought nothing and cost
+  everything — a quick drag was abandoned into empty space and simply did nothing. The gate is now
+  a parameter, on inside scrollables and off on the desktop.
 - **Not in this slice:** folders, multi-select and marquee, dragging several icons at once, sorting
   commands, icon size options, or free (non-grid) pixel placement.

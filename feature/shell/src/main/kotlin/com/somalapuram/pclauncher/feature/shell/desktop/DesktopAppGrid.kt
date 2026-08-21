@@ -2,17 +2,14 @@ package com.somalapuram.pclauncher.feature.shell.desktop
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -25,36 +22,44 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.somalapuram.pclauncher.core.apps.AppEntry
+import com.somalapuram.pclauncher.core.data.layout.DesktopCell
+import com.somalapuram.pclauncher.core.data.layout.DesktopLayout
+import com.somalapuram.pclauncher.core.data.layout.withAutoPlacement
 import com.somalapuram.pclauncher.core.design.LocalPcColors
 import com.somalapuram.pclauncher.core.design.PcCorners
 import com.somalapuram.pclauncher.core.design.PcSize
 import com.somalapuram.pclauncher.core.design.PcSpacing
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
 import com.somalapuram.pclauncher.feature.shell.bar.bitmapPainterFor
 import com.somalapuram.pclauncher.feature.shell.interaction.appItemGestures
-import androidx.compose.foundation.layout.fillMaxSize as fillMaxSizeModifier
+import kotlin.math.roundToInt
 
 /**
- * Apps on the desktop, filling **column-major** — top to bottom, then across (grid-layouts.md).
+ * Apps on the desktop, at cells the user chooses.
  *
- * `LazyHorizontalGrid` is what produces that: it packs each column before moving right. Not
- * cosmetic — a desktop's free space is on the right, where windows are least likely to sit, so
- * column-major keeps icons against the left edge as they accumulate. Row-major spreads a handful
- * of icons across the whole top of the screen.
+ * **Positioned, not laid out.** A desktop's defining property is that the user decides where things
+ * go — position is data, not a consequence of alphabetical order. That rules out a lazy grid, which
+ * can only ever *flow*. A desktop holds tens of icons, not thousands, so nothing is lost.
  *
- * Still a first cut of `desktop/icon-grid.md`: free placement, drag-to-arrange, folders and
- * marquee selection belong to that doc.
+ * It also fixes something a flowing grid made impossible: the desktop's own context menu. A
+ * scrollable grid claims every press across its whole area, so the empty desktop could never
+ * receive one. With positioned children, empty space genuinely has no child and the press falls
+ * through to the container.
  */
 @Composable
 fun DesktopAppGrid(
     entries: List<AppEntry>,
+    layout: DesktopLayout,
     isPinned: (AppEntry) -> Boolean,
     onLaunch: (AppEntry) -> Unit,
     onTogglePin: (AppEntry) -> Unit,
@@ -65,22 +70,56 @@ fun DesktopAppGrid(
     onDragEnd: () -> Unit = {},
     onChangeWallpaper: () -> Unit = {},
     onAddWidget: () -> Unit = {},
+    /**
+     * Reports what a drop needs to become a cell: cell size, row count, and the grid's origin in
+     * root coordinates. Origin is part of it because the drag position is in root space and the
+     * grid is inset by its own padding.
+     */
+    onGridMetrics: (cellWidthPx: Float, cellHeightPx: Float, rows: Int, originInRoot: Offset) -> Unit =
+        { _, _, _, _ -> },
 ) {
+    val density = LocalDensity.current
     var desktopMenuOpen by remember { mutableStateOf(false) }
+    // Where the menu was asked for. A context menu that opens far from the pointer makes the user
+    // hunt for the thing they just summoned.
+    var menuAt by remember { mutableStateOf(Offset.Zero) }
+    var heightPx by remember { mutableStateOf(0) }
+    var originInRoot by remember { mutableStateOf(Offset.Zero) }
 
-    // The gesture belongs on the *container*, not on a sibling behind the grid: the grid fills the
-    // whole area and would swallow every press. Children are hit-tested first, so an icon handles
-    // its own gestures and anything landing on empty space falls through to here.
+    val cellW = PcSize.DesktopGridCell
+    val cellH = DesktopCellHeight
+    val cellWpx = with(density) { cellW.toPx() }
+    val cellHpx = with(density) { cellH.toPx() }
+    val rows = if (cellHpx > 0f) (heightPx / cellHpx).toInt().coerceAtLeast(1) else 1
+
+    // Everything without a placement gets one, in the same column-major order the flowing grid
+    // used — so this change does not scramble an arrangement anyone is already used to.
+    val placed = remember(entries, layout, rows) {
+        withAutoPlacement(layout, entries.map { it.key.component.flattenToShortString() }, rows)
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
+            .padding(PcSpacing.Large)
+            .onGloballyPositioned {
+                heightPx = it.size.height
+                originInRoot = it.positionInRoot()
+                onGridMetrics(cellWpx, cellHpx, rows, originInRoot)
+            }
+            // The empty desktop's own gesture. Children are hit-tested first, so an icon handles
+            // its own press and anything landing on bare desktop arrives here.
             .appItemGestures(
                 key = "desktop-surface",
                 onClick = {},
-                onContextMenu = { desktopMenuOpen = true },
+                onContextMenu = { at -> menuAt = at; desktopMenuOpen = true },
             ),
     ) {
-        DropdownMenu(expanded = desktopMenuOpen, onDismissRequest = { desktopMenuOpen = false }) {
+        DropdownMenu(
+            expanded = desktopMenuOpen,
+            onDismissRequest = { desktopMenuOpen = false },
+            offset = with(density) { DpOffset(menuAt.x.toDp(), menuAt.y.toDp()) },
+        ) {
             DropdownMenuItem(
                 text = { Text("Change wallpaper") },
                 onClick = { onChangeWallpaper(); desktopMenuOpen = false },
@@ -91,29 +130,29 @@ fun DesktopAppGrid(
             )
         }
 
-    LazyHorizontalGrid(
-        // Adaptive on height: the desktop is whatever size the display is, and its icons are not
-        // keyboard-navigated, so fitting the available height beats a fixed count here.
-        rows = GridCells.Adaptive(minSize = PcSize.DesktopGridCell),
-        modifier = Modifier.fillMaxSize().padding(PcSpacing.Large),
-        horizontalArrangement = Arrangement.spacedBy(PcSpacing.Small),
-        verticalArrangement = Arrangement.spacedBy(PcSpacing.Small),
-    ) {
-        items(entries, key = { it.key.component.flattenToShortString() + it.key.user }) { entry ->
+        entries.forEach { entry ->
+            val id = entry.key.component.flattenToShortString()
+            val cell = placed.cellFor(id) ?: DesktopCell(0, 0)
+
             DesktopIcon(
                 entry = entry,
                 isPinned = isPinned(entry),
                 painter = iconFor(entry),
                 onLaunch = { onLaunch(entry) },
                 onTogglePin = { onTogglePin(entry) },
-                onDragStart = { local -> onDragStart(entry, local) },
+                onDragStart = { local -> onDragStart(entry, originInRoot + local) },
                 onDrag = onDrag,
                 onDragEnd = onDragEnd,
+                modifier = Modifier
+                    .offset { IntOffset((cell.column * cellWpx).roundToInt(), (cell.row * cellHpx).roundToInt()) }
+                    .width(cellW),
             )
         }
     }
-    }
 }
+
+/** Tall enough for a 52 dp icon plus a two-line label without the rows touching. */
+val DesktopCellHeight = 104.dp
 
 @Composable
 private fun DesktopIcon(
@@ -125,14 +164,13 @@ private fun DesktopIcon(
     onDragStart: (Offset) -> Unit,
     onDrag: (Offset) -> Unit,
     onDragEnd: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val colors = LocalPcColors.current
     var menuOpen by remember { mutableStateOf(false) }
-    // Drag positions have to be in root coordinates: the drop test compares them against the bar,
-    // which lives in a different part of the tree.
     var originInRoot by remember { mutableStateOf(Offset.Zero) }
 
-    Box(modifier = Modifier.onGloballyPositioned { originInRoot = it.positionInRoot() }) {
+    Box(modifier = modifier.onGloballyPositioned { originInRoot = it.positionInRoot() }) {
         Column(
             modifier = Modifier
                 .width(PcSize.DesktopGridCell)
@@ -144,9 +182,11 @@ private fun DesktopIcon(
                 .appItemGestures(
                     key = entry.key,
                     enabled = entry.isLaunchable,
+                    // Nothing scrolls here, so a drag need not wait for the long-press.
+                    dragRequiresLongPress = false,
                     onClick = onLaunch,
-                    onContextMenu = { menuOpen = true },
-                    onDragStart = { local -> onDragStart(originInRoot + local) },
+                    onContextMenu = { _ -> menuOpen = true },
+                    onDragStart = { local -> onDragStart(local) },
                     onDrag = onDrag,
                     onDragEnd = onDragEnd,
                 )
@@ -174,18 +214,6 @@ private fun DesktopIcon(
                     .padding(horizontal = 4.dp, vertical = 1.dp),
             )
         }
-
-        // Right-click has no Compose primitive on Android; the affordance is a long-press-style
-        // secondary action exposed here, and the same menu the Start list uses.
-        Text(
-            text = "⋯",
-            color = colors.onSurfaceMuted,
-            fontSize = 14.sp,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .clickable { menuOpen = true }
-                .padding(horizontal = PcSpacing.ExtraSmall),
-        )
 
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
             DropdownMenuItem(

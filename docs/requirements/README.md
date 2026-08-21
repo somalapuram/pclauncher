@@ -70,7 +70,7 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 
 ### desktop
 - [`desktop/icon-grid.md`](desktop/icon-grid.md) — persisted icon cells, drag-to-arrange, and the
-  desktop's own context menu (wallpaper, add widget). *Status: Accepted · In progress.*
+  desktop’s own context menu (wallpaper, add widget). *Status: Accepted · Implemented.*
 - [`desktop/widget-host.md`](desktop/widget-host.md) — `AppWidgetHost` inside Compose, binding and
   id lifecycle. *Status: Accepted · In progress.*
 

@@ -37,6 +37,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.somalapuram.pclauncher.core.data.layout.DesktopCell
+import com.somalapuram.pclauncher.core.data.layout.DesktopLayout
 import com.somalapuram.pclauncher.core.data.pins.Pins
 import com.somalapuram.pclauncher.feature.shell.bar.ShellBar
 import com.somalapuram.pclauncher.feature.shell.desktop.DesktopAppGrid
@@ -67,9 +69,11 @@ fun HomeScreen(
     outcome: StartupOutcome,
     inventory: StateFlow<AppInventory> = MutableStateFlow(AppInventory()),
     pins: StateFlow<Pins> = MutableStateFlow(Pins()),
+    desktopLayout: StateFlow<DesktopLayout> = MutableStateFlow(DesktopLayout()),
     iconFor: (AppEntry) -> android.graphics.drawable.Drawable? = { null },
     onLaunchApp: (AppEntry) -> Unit = {},
     onTogglePin: (AppEntry) -> Unit = {},
+    onPlace: (AppEntry, DesktopCell) -> Unit = { _, _ -> },
     tray: TrayState = TrayState(),
     onChangeWallpaper: () -> Unit = {},
     onAddWidget: () -> Unit = {},
@@ -81,6 +85,12 @@ fun HomeScreen(
 ) {
     val apps by inventory.collectAsState()
     val currentPins by pins.collectAsState()
+    val layout by desktopLayout.collectAsState()
+    // Reported by the desktop once it has measured, so a drop can be turned into a cell.
+    var cellW by remember { mutableStateOf(0f) }
+    var cellH by remember { mutableStateOf(0f) }
+    var gridRows by remember { mutableStateOf(1) }
+    var desktopOrigin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
     var startOpen by remember { mutableStateOf(false) }
 
     val pinnedIds = currentPins.items.map { it.component }
@@ -93,6 +103,25 @@ fun HomeScreen(
     var barBottomY by remember { mutableStateOf(Float.MAX_VALUE) }
 
     fun finishDrag() {
+        // A desktop icon dropped back on the desktop is a *move*, not an unpin — unpinning is what
+        // dropping a dock icon there means. Same gesture, different meaning by origin.
+        val movingOnDesktop = drag.origin == DragOrigin.Desktop && drag.target == DropTarget.Desktop
+        val entry = drag.entry
+        val at = drag.position
+
+        if (movingOnDesktop && entry != null) {
+            val cell = com.somalapuram.pclauncher.core.data.layout.cellAt(
+                x = at.x - desktopOrigin.x,
+                y = at.y - desktopOrigin.y,
+                cellWidth = cellW,
+                cellHeight = cellH,
+                rowsPerColumn = gridRows,
+            )
+            drag.cancel()
+            if (cell != null) onPlace(entry, cell)
+            return
+        }
+
         // The store operation is the same one the context menu calls — dragging is a second route
         // to it, never a second implementation.
         drag.end(isPinned)?.let { onTogglePin(it.entry) }
@@ -122,6 +151,10 @@ fun HomeScreen(
                     onDragEnd = { finishDrag() },
                     onChangeWallpaper = onChangeWallpaper,
                     onAddWidget = onAddWidget,
+                    layout = layout,
+                    onGridMetrics = { w, h, rows, origin ->
+                        cellW = w; cellH = h; gridRows = rows; desktopOrigin = origin
+                    },
                 )
 
                 is StartupOutcome.Fallback -> FallbackDesktop(
@@ -234,10 +267,14 @@ private fun Desktop(
     onDragEnd: () -> Unit,
     onChangeWallpaper: () -> Unit,
     onAddWidget: () -> Unit,
+    layout: DesktopLayout,
+    onGridMetrics: (Float, Float, Int, androidx.compose.ui.geometry.Offset) -> Unit,
 ) {
     if (apps.isNotEmpty()) {
         DesktopAppGrid(
             entries = apps,
+            layout = layout,
+            onGridMetrics = onGridMetrics,
             isPinned = isPinned,
             onLaunch = onLaunch,
             onTogglePin = onTogglePin,

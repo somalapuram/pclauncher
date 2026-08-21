@@ -70,9 +70,11 @@ class HomeActivity : ComponentActivity() {
                 HomeScreen(
                     inventory = shell?.inventory ?: EmptyInventory,
                     pins = shell?.pins ?: EmptyPins,
+                    desktopLayout = shell?.layout ?: EmptyLayout,
                     iconFor = iconFor,
                     onLaunchApp = { launcher.launch(it) },
                     onTogglePin = { entry -> shell?.togglePin(entry) },
+                    onPlace = { entry, cell -> shell?.place(entry, cell) },
                     tray = tray,
                     onChangeWallpaper = { openWallpaperPicker() },
                     outcome = outcome,
@@ -107,6 +109,7 @@ class HomeActivity : ComponentActivity() {
         return ShellController(
             repository = entryPoint.appInventoryRepository(),
             pinStore = entryPoint.pinStore(),
+            layoutStore = entryPoint.desktopLayoutStore(),
             scope = lifecycleScope,
             userSerial = userSerial,
         )
@@ -141,4 +144,7 @@ private val EmptyInventory = kotlinx.coroutines.flow.MutableStateFlow(
 )
 private val EmptyPins = kotlinx.coroutines.flow.MutableStateFlow(
     com.somalapuram.pclauncher.core.data.pins.Pins(),
+)
+private val EmptyLayout = kotlinx.coroutines.flow.MutableStateFlow(
+    com.somalapuram.pclauncher.core.data.layout.DesktopLayout(),
 )

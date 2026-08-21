@@ -62,7 +62,7 @@ fun DockIcon(
             .appItemGestures(
                 key = item.id,
                 onClick = onClick,
-                onContextMenu = onContextMenu,
+                onContextMenu = { _ -> onContextMenu() },
                 onDragStart = { local -> onDragStart(originInRoot + local) },
                 onDrag = onDrag,
                 onDragEnd = onDragEnd,

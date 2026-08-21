@@ -230,7 +230,7 @@ private fun AppCell(
                     key = entry.key,
                     enabled = entry.isLaunchable,
                     onClick = onLaunch,
-                    onContextMenu = { menuOpen = true },
+                    onContextMenu = { _ -> menuOpen = true },
                 )
                 .padding(vertical = PcSpacing.Small),
             horizontalAlignment = Alignment.CenterHorizontally,

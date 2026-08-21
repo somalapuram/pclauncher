@@ -4,6 +4,7 @@ import com.somalapuram.pclauncher.DesktopEnvironmentSource
 import com.somalapuram.pclauncher.SafeModeApps
 import com.somalapuram.pclauncher.core.apps.AppInventoryRepository
 import com.somalapuram.pclauncher.core.apps.IconCache
+import com.somalapuram.pclauncher.core.data.layout.DesktopLayoutStore
 import com.somalapuram.pclauncher.core.data.pins.PinStore
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -22,4 +23,6 @@ interface HomeEntryPoint {
     fun iconCache(): IconCache
 
     fun pinStore(): PinStore
+
+    fun desktopLayoutStore(): DesktopLayoutStore
 }

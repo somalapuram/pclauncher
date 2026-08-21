@@ -5,6 +5,9 @@ import com.somalapuram.pclauncher.core.apps.AppInventory
 import com.somalapuram.pclauncher.core.apps.AppInventoryRepository
 import com.somalapuram.pclauncher.core.data.pins.Pin
 import com.somalapuram.pclauncher.core.data.pins.PinStore
+import com.somalapuram.pclauncher.core.data.layout.DesktopCell
+import com.somalapuram.pclauncher.core.data.layout.DesktopLayout
+import com.somalapuram.pclauncher.core.data.layout.DesktopLayoutStore
 import com.somalapuram.pclauncher.core.data.pins.Pins
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +30,7 @@ import kotlinx.coroutines.launch
 class ShellController(
     private val repository: AppInventoryRepository,
     private val pinStore: PinStore,
+    private val layoutStore: DesktopLayoutStore,
     private val scope: CoroutineScope,
     private val userSerial: Long,
 ) {
@@ -35,12 +39,25 @@ class ShellController(
     private val _pins = MutableStateFlow(Pins())
     val pins: StateFlow<Pins> = _pins.asStateFlow()
 
+    private val _layout = MutableStateFlow(DesktopLayout())
+    val layout: StateFlow<DesktopLayout> = _layout.asStateFlow()
+
     fun start() {
         repository.start(scope)
         scope.launch {
             // A store that cannot be read yields an empty dock, never a crash.
             runCatching { pinStore.pins.collect { _pins.value = it } }
         }
+        scope.launch {
+            // Likewise: an unreadable layout costs the arrangement, not the desktop — icons fall
+            // back to auto-placement (GATE 4).
+            runCatching { layoutStore.layout.collect { _layout.value = it } }
+        }
+    }
+
+    /** Move an icon to a cell. A refused move leaves the store untouched and the icon springs back. */
+    fun place(entry: AppEntry, cell: DesktopCell) {
+        scope.launch { runCatching { layoutStore.place(pinIdOf(entry), cell) } }
     }
 
     fun isPinned(entry: AppEntry): Boolean = pinIdOf(entry) in _pins.value.items.map { it.component }
