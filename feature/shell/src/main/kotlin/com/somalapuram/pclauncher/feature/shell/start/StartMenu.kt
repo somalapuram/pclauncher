@@ -14,9 +14,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.DropdownMenu
@@ -40,6 +41,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -71,14 +73,14 @@ fun StartMenu(
     var query by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf(0) }
     val focusRequester = remember { FocusRequester() }
-    val listState = rememberLazyListState()
+    val gridState = rememberLazyGridState()
 
     val filtered = remember(entries, query) { AppSearch.filter(entries, query) }
 
     // The selection must survive filtering — clamping rather than resetting keeps the highlight
     // where the user is looking when results shrink under them.
     LaunchedEffect(filtered.size) { selected = selected.coerceIn(0, maxOf(0, filtered.size - 1)) }
-    LaunchedEffect(selected) { if (filtered.isNotEmpty()) listState.animateScrollToItem(selected) }
+    LaunchedEffect(selected) { if (filtered.isNotEmpty()) gridState.animateScrollToItem(selected) }
     LaunchedEffect(Unit) { runCatching { focusRequester.requestFocus() } }
 
     Column(
@@ -90,16 +92,31 @@ fun StartMenu(
             // layer beneath, so clicking inside the menu would close it. Rows and the search field
             // are hit-tested first and are unaffected.
             .clickable(interactionSource = null, indication = null) { }
-            .background(colors.scrim.copy(alpha = 0.96f), RoundedCornerShape(PcCorners.Surface))
+            // Opaque, unlike the bar. The bar is thin chrome over wallpaper, where translucency
+            // reads as depth; the Start menu is a dense panel sitting over a grid of bright icons,
+            // and at 96% those icons still bleed through and look like rendering ghosts. A menu
+            // you can read the desktop through is the wrong trade (SRS §6.1 principle 1: the
+            // user's content is what matters, and here the menu *is* the content).
+            .background(colors.surface, RoundedCornerShape(PcCorners.Surface))
             .border(1.dp, colors.hairline, RoundedCornerShape(PcCorners.Surface))
             .padding(PcSpacing.Medium)
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                // Arrow arithmetic lives in moveInGrid: in a grid, up/down move by a whole row,
+                // and every seam (row edges, a partial last row) is an off-by-one waiting to happen.
                 when (event.key) {
                     Key.DirectionDown -> {
-                        selected = (selected + 1).coerceAtMost(filtered.lastIndex.coerceAtLeast(0)); true
+                        selected = moveInGrid(selected, GridMove.Down, filtered.size, StartColumns); true
                     }
-                    Key.DirectionUp -> { selected = (selected - 1).coerceAtLeast(0); true }
+                    Key.DirectionUp -> {
+                        selected = moveInGrid(selected, GridMove.Up, filtered.size, StartColumns); true
+                    }
+                    Key.DirectionLeft -> {
+                        selected = moveInGrid(selected, GridMove.Left, filtered.size, StartColumns); true
+                    }
+                    Key.DirectionRight -> {
+                        selected = moveInGrid(selected, GridMove.Right, filtered.size, StartColumns); true
+                    }
                     Key.Enter, Key.NumPadEnter -> {
                         filtered.getOrNull(selected)?.takeIf { it.isLaunchable }?.let(onLaunch); true
                     }
@@ -124,9 +141,17 @@ fun StartMenu(
         when {
             entries.isEmpty() -> EmptyNote("Loading apps…")
             filtered.isEmpty() -> EmptyNote("No apps match \"$query\"")
-            else -> LazyColumn(state = listState, modifier = Modifier.fillMaxWidth()) {
+            else -> LazyVerticalGrid(
+                // Fixed, not adaptive: the keyboard step size has to be exact, and an adaptive
+                // count would make it depend on the measured width.
+                columns = GridCells.Fixed(StartColumns),
+                state = gridState,
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(PcSpacing.ExtraSmall),
+                verticalArrangement = Arrangement.spacedBy(PcSpacing.ExtraSmall),
+            ) {
                 items(filtered, key = { it.key.component.flattenToShortString() + it.key.user }) { entry ->
-                    AppRow(
+                    AppCell(
                         entry = entry,
                         isSelected = filtered.getOrNull(selected) === entry,
                         isPinned = isPinned(entry),
@@ -180,7 +205,7 @@ private fun EmptyNote(text: String) {
 }
 
 @Composable
-private fun AppRow(
+private fun AppCell(
     entry: AppEntry,
     isSelected: Boolean,
     isPinned: Boolean,
@@ -191,60 +216,69 @@ private fun AppRow(
     val colors = LocalPcColors.current
     var menuOpen by remember { mutableStateOf(false) }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(44.dp)
-            .background(
-                if (isSelected) colors.onSurface.copy(alpha = 0.12f) else androidx.compose.ui.graphics.Color.Transparent,
-                RoundedCornerShape(PcCorners.Popover),
-            )
-            .appItemGestures(
-                key = entry.key,
-                enabled = entry.isLaunchable,
-                onClick = onLaunch,
-                onContextMenu = { menuOpen = true },
-            )
-            .padding(horizontal = PcSpacing.Small),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(PcSpacing.Medium),
-    ) {
-        // Unavailable and suspended entries are greyed rather than hidden — the inventory's
-        // contract, carried through to every surface that lists an app.
-        Box(modifier = Modifier.alpha(if (entry.isLaunchable) 1f else 0.4f)) {
-            bitmapPainterFor(painter)?.let {
-                Image(painter = it, contentDescription = null, modifier = Modifier.size(28.dp))
-            } ?: Box(Modifier.size(28.dp))
-        }
+    Box {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(96.dp)
+                .background(
+                    if (isSelected) colors.onSurface.copy(alpha = 0.14f)
+                    else androidx.compose.ui.graphics.Color.Transparent,
+                    RoundedCornerShape(PcCorners.Popover),
+                )
+                .appItemGestures(
+                    key = entry.key,
+                    enabled = entry.isLaunchable,
+                    onClick = onLaunch,
+                    onContextMenu = { menuOpen = true },
+                )
+                .padding(vertical = PcSpacing.Small),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(PcSpacing.ExtraSmall),
+        ) {
+            // Unavailable and suspended entries are greyed rather than hidden — the inventory's
+            // contract, carried through to every surface that lists an app.
+            Box(modifier = Modifier.alpha(if (entry.isLaunchable) 1f else 0.4f)) {
+                bitmapPainterFor(painter)?.let {
+                    Image(painter = it, contentDescription = null, modifier = Modifier.size(44.dp))
+                } ?: Box(Modifier.size(44.dp))
+            }
 
-        Text(
-            text = entry.label,
-            color = if (entry.isLaunchable) colors.onSurface else colors.onSurfaceMuted,
-            fontSize = 14.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
+            Text(
+                text = entry.label,
+                color = if (entry.isLaunchable) colors.onSurface else colors.onSurfaceMuted,
+                fontSize = 11.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 2.dp),
+            )
+        }
 
         if (isPinned) {
-            Text("pinned", color = colors.accent, fontSize = 10.sp)
+            Box(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp)
+                    .size(6.dp)
+                    .background(colors.accent, RoundedCornerShape(50)),
+            )
         }
 
-        Box {
-            Text(
-                text = "⋯",
-                color = colors.onSurfaceMuted,
-                fontSize = 16.sp,
-                modifier = Modifier
-                    .clickable { menuOpen = true }
-                    .padding(horizontal = PcSpacing.Small),
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            DropdownMenuItem(
+                text = { Text(if (isPinned) "Unpin from taskbar" else "Pin to taskbar") },
+                onClick = { onTogglePin(); menuOpen = false },
             )
-            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                DropdownMenuItem(
-                    text = { Text(if (isPinned) "Unpin from taskbar" else "Pin to taskbar") },
-                    onClick = { onTogglePin(); menuOpen = false },
-                )
-            }
         }
     }
 }
+
+/**
+ * Start's column count.
+ *
+ * Fixed so keyboard movement has exact arithmetic. Five columns of 44 dp icons fit the 420 dp
+ * popover with room for two-line labels, and show thirty-five apps where the old list showed
+ * eleven.
+ */
+const val StartColumns = 5

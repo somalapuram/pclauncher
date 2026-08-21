@@ -1,5 +1,6 @@
 package com.somalapuram.pclauncher.core.design
 
+import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.graphics.Color
 
 /**
@@ -35,4 +36,28 @@ val PcDarkColors = PcColors(
     accent = Color(0xFF5B93FF),
     onAccent = Color(0xFF0B1220),
     scrim = Color(0xFF0B0D11),
+)
+
+/**
+ * Map the system's dynamic scheme onto the shell's tokens.
+ *
+ * One function, in one place, so nothing outside this module learns about Material colour roles —
+ * every surface keeps reading [LocalPcColors] and none of them care where the values came from.
+ *
+ * Roles are paired deliberately: each foreground comes from the role that Material guarantees is
+ * legible on the background it is placed on. Assembling a palette from unrelated roles is how
+ * dynamic colour ends up with grey-on-grey on somebody's wallpaper.
+ */
+fun pcColorsFrom(scheme: ColorScheme): PcColors = PcColors(
+    surface = scheme.surface,
+    onSurface = scheme.onSurface,
+    // The muted role that Material pairs with surface — not onSurface at reduced alpha, which
+    // loses contrast unpredictably once the surface itself is translucent.
+    onSurfaceMuted = scheme.onSurfaceVariant,
+    hairline = scheme.outlineVariant,
+    accent = scheme.primary,
+    onAccent = scheme.onPrimary,
+    // The shell's translucent surfaces tint from this, so it must be the same ground onSurface is
+    // guaranteed against.
+    scrim = scheme.surface,
 )

@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
@@ -41,11 +41,15 @@ import com.somalapuram.pclauncher.feature.shell.bar.bitmapPainterFor
 import com.somalapuram.pclauncher.feature.shell.interaction.appItemGestures
 
 /**
- * Apps on the desktop.
+ * Apps on the desktop, filling **column-major** — top to bottom, then across (grid-layouts.md).
  *
- * A first cut of `desktop/icon-grid.md`: a fixed grid that lists what is installed, so apps are
- * reachable and pinnable from the desktop as well as from Start. Free placement, drag, folders and
- * marquee selection belong to that doc and are not here.
+ * `LazyHorizontalGrid` is what produces that: it packs each column before moving right. Not
+ * cosmetic — a desktop's free space is on the right, where windows are least likely to sit, so
+ * column-major keeps icons against the left edge as they accumulate. Row-major spreads a handful
+ * of icons across the whole top of the screen.
+ *
+ * Still a first cut of `desktop/icon-grid.md`: free placement, drag-to-arrange, folders and
+ * marquee selection belong to that doc.
  */
 @Composable
 fun DesktopAppGrid(
@@ -59,8 +63,10 @@ fun DesktopAppGrid(
     onDrag: (Offset) -> Unit = {},
     onDragEnd: () -> Unit = {},
 ) {
-    LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = PcSize.DesktopGridCell),
+    LazyHorizontalGrid(
+        // Adaptive on height: the desktop is whatever size the display is, and its icons are not
+        // keyboard-navigated, so fitting the available height beats a fixed count here.
+        rows = GridCells.Adaptive(minSize = PcSize.DesktopGridCell),
         modifier = modifier.fillMaxSize().padding(PcSpacing.Large),
         horizontalArrangement = Arrangement.spacedBy(PcSpacing.Small),
         verticalArrangement = Arrangement.spacedBy(PcSpacing.Small),

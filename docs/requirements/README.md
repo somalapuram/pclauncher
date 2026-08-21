@@ -42,6 +42,8 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 - `windows/mission-control.md` — window overview. *Status: Planned.*
 
 ### design
+- [`design/dynamic-color.md`](design/dynamic-color.md) — adopt Android's Material You colours
+  instead of a hardcoded palette, with a manual override. *Status: Accepted · Implemented.*
 - [`design/icon-treatment.md`](design/icon-treatment.md) — squircle tiles with gloss, rim light and
   shadow, baked once into the icon cache; dark-glass and soft-clay palettes by theme.
   *Status: Accepted · Implemented.*
@@ -55,6 +57,8 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
   hosts the same composables later. *Status: Accepted · Partially implemented.*
 - [`shell/start-menu.md`](shell/start-menu.md) — all apps + search, keyboard-first, right-click to
   pin. *Status: Accepted · Partially implemented (outside-click dismiss done; App info pending).*
+- [`shell/grid-layouts.md`](shell/grid-layouts.md) — Start as a fixed-column grid; the desktop
+  filling column-major. *Status: Accepted · Implemented.*
 - [`shell/direct-manipulation.md`](shell/direct-manipulation.md) — right-click and long-press
   context menus, and dragging apps between the desktop and the taskbar.
   *Status: Accepted · Implemented.*

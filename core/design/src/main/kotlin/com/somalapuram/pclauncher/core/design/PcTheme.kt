@@ -1,9 +1,12 @@
 package com.somalapuram.pclauncher.core.design
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 
 val LocalPcColors = staticCompositionLocalOf { PcDarkColors }
@@ -15,16 +18,34 @@ val LocalSurfaceTreatment = staticCompositionLocalOf<SurfaceTreatment> {
 /**
  * The shell theme. Provides the palette and the surface treatment every chrome surface reads.
  *
+ * [dynamicColor] takes the system's Material You colours, so the shell looks like it belongs on the
+ * user's device rather than shipping its own opinion (dynamic-color.md). `minSdk 31` means this
+ * needs no version gate — dynamic colour arrived in Android 12, and the minimum was already set
+ * there for freeform windowing.
+ *
  * [blurEnabled] is the user's preference; whether it is honoured also depends on the renderer
  * (SRS §4.3) — see [surfaceTreatmentFor].
  */
 @Composable
 fun PcTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    dynamicColor: Boolean = true,
     blurEnabled: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val colors = if (darkTheme) PcDarkColors else PcLightColors
+    val context = LocalContext.current
+    val colors = when {
+        // A device that refuses to produce a scheme falls back rather than failing: this runs on
+        // the way to drawing the home screen (GATE 4).
+        dynamicColor -> runCatching {
+            pcColorsFrom(
+                if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context),
+            )
+        }.getOrElse { if (darkTheme) PcDarkColors else PcLightColors }
+
+        darkTheme -> PcDarkColors
+        else -> PcLightColors
+    }
     val hardwareAccelerated = LocalView.current.isHardwareAccelerated
 
     CompositionLocalProvider(
