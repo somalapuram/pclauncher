@@ -39,6 +39,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import com.somalapuram.pclauncher.feature.shell.bar.bitmapPainterFor
 import com.somalapuram.pclauncher.feature.shell.interaction.appItemGestures
+import androidx.compose.foundation.layout.fillMaxSize as fillMaxSizeModifier
 
 /**
  * Apps on the desktop, filling **column-major** — top to bottom, then across (grid-layouts.md).
@@ -62,12 +63,39 @@ fun DesktopAppGrid(
     onDragStart: (AppEntry, Offset) -> Unit = { _, _ -> },
     onDrag: (Offset) -> Unit = {},
     onDragEnd: () -> Unit = {},
+    onChangeWallpaper: () -> Unit = {},
+    onAddWidget: () -> Unit = {},
 ) {
+    var desktopMenuOpen by remember { mutableStateOf(false) }
+
+    // The gesture belongs on the *container*, not on a sibling behind the grid: the grid fills the
+    // whole area and would swallow every press. Children are hit-tested first, so an icon handles
+    // its own gestures and anything landing on empty space falls through to here.
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .appItemGestures(
+                key = "desktop-surface",
+                onClick = {},
+                onContextMenu = { desktopMenuOpen = true },
+            ),
+    ) {
+        DropdownMenu(expanded = desktopMenuOpen, onDismissRequest = { desktopMenuOpen = false }) {
+            DropdownMenuItem(
+                text = { Text("Change wallpaper") },
+                onClick = { onChangeWallpaper(); desktopMenuOpen = false },
+            )
+            DropdownMenuItem(
+                text = { Text("Add widget") },
+                onClick = { onAddWidget(); desktopMenuOpen = false },
+            )
+        }
+
     LazyHorizontalGrid(
         // Adaptive on height: the desktop is whatever size the display is, and its icons are not
         // keyboard-navigated, so fitting the available height beats a fixed count here.
         rows = GridCells.Adaptive(minSize = PcSize.DesktopGridCell),
-        modifier = modifier.fillMaxSize().padding(PcSpacing.Large),
+        modifier = Modifier.fillMaxSize().padding(PcSpacing.Large),
         horizontalArrangement = Arrangement.spacedBy(PcSpacing.Small),
         verticalArrangement = Arrangement.spacedBy(PcSpacing.Small),
     ) {
@@ -83,6 +111,7 @@ fun DesktopAppGrid(
                 onDragEnd = onDragEnd,
             )
         }
+    }
     }
 }
 

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      The tray's Wi-Fi indicator, via a connectivity callback. A normal permission, granted at
+      install — no prompt.
+
+      Bluetooth is deliberately *not* here: BluetoothAdapter.isEnabled() has needed
+      BLUETOOTH_CONNECT at runtime since API 31, and asking the user to allow "finding and
+      connecting to nearby devices" so the shell can draw a glyph is not a trade worth making. The
+      on/off state is read from Settings.Global instead (system-tray.md).
+    -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+</manifest>

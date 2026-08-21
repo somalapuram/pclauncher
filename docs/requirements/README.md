@@ -65,13 +65,14 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 - [`shell/pinning.md`](shell/pinning.md) — the `pins` store and pin/unpin from every surface that
   lists an app. *Status: Accepted · Implemented.*
 - `shell/command-palette.md` — Spotlight palette + `PaletteProvider`. *Status: Planned.*
-- `shell/system-tray.md` — clock, battery, volume, Wi-Fi, Bluetooth, notification popovers.
-  *Status: Planned.*
+- [`shell/system-tray.md`](shell/system-tray.md) — clock, battery, Wi-Fi, Bluetooth in the bar's
+  right zone, all push-driven. *Status: Accepted · Implemented.*
 
 ### desktop
-- `desktop/icon-grid.md` — wallpaper, icon grid, drag, marquee, folders, context menus.
-  *Status: Planned.*
-- `desktop/widget-host.md` — `AppWidgetHost` inside Compose. *Status: Planned.*
+- [`desktop/icon-grid.md`](desktop/icon-grid.md) — persisted icon cells, drag-to-arrange, and the
+  desktop's own context menu (wallpaper, add widget). *Status: Accepted · In progress.*
+- [`desktop/widget-host.md`](desktop/widget-host.md) — `AppWidgetHost` inside Compose, binding and
+  id lifecycle. *Status: Accepted · In progress.*
 
 ### system
 - `system/privileged-provider.md` — Shizuku provider behind the T2 backend. *Status: Planned.*

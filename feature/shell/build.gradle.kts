@@ -47,6 +47,8 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 
+    implementation(libs.androidx.core.ktx)
+
     implementation(projects.core.design)
     implementation(projects.core.apps)
     implementation(projects.core.data)

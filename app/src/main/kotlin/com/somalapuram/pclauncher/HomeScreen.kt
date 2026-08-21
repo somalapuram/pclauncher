@@ -46,6 +46,7 @@ import com.somalapuram.pclauncher.feature.shell.interaction.DragOrigin
 import com.somalapuram.pclauncher.feature.shell.interaction.DragState
 import com.somalapuram.pclauncher.feature.shell.interaction.DropTarget
 import com.somalapuram.pclauncher.feature.shell.start.StartMenu
+import com.somalapuram.pclauncher.feature.shell.tray.TrayState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import com.somalapuram.pclauncher.core.design.LocalPcColors
@@ -69,6 +70,9 @@ fun HomeScreen(
     iconFor: (AppEntry) -> android.graphics.drawable.Drawable? = { null },
     onLaunchApp: (AppEntry) -> Unit = {},
     onTogglePin: (AppEntry) -> Unit = {},
+    tray: TrayState = TrayState(),
+    onChangeWallpaper: () -> Unit = {},
+    onAddWidget: () -> Unit = {},
     isDefaultHome: Boolean,
     onSetDefaultHome: () -> Unit,
     onRetry: () -> Unit,
@@ -116,6 +120,8 @@ fun HomeScreen(
                     onDragStart = { entry, at -> drag.start(entry, DragOrigin.Desktop, at) },
                     onDrag = { delta -> drag.moveTo(drag.position + delta, barTopY, barBottomY) },
                     onDragEnd = { finishDrag() },
+                    onChangeWallpaper = onChangeWallpaper,
+                    onAddWidget = onAddWidget,
                 )
 
                 is StartupOutcome.Fallback -> FallbackDesktop(
@@ -156,6 +162,7 @@ fun HomeScreen(
                 },
                 onItemDrag = { delta -> drag.moveTo(drag.position + delta, barTopY, barBottomY) },
                 onItemDragEnd = { finishDrag() },
+                tray = tray,
                 modifier = Modifier.padding(
                     horizontal = PcSpacing.Large,
                     vertical = PcSpacing.Small,
@@ -225,6 +232,8 @@ private fun Desktop(
     onDragStart: (AppEntry, androidx.compose.ui.geometry.Offset) -> Unit,
     onDrag: (androidx.compose.ui.geometry.Offset) -> Unit,
     onDragEnd: () -> Unit,
+    onChangeWallpaper: () -> Unit,
+    onAddWidget: () -> Unit,
 ) {
     if (apps.isNotEmpty()) {
         DesktopAppGrid(
@@ -236,6 +245,8 @@ private fun Desktop(
             onDragStart = onDragStart,
             onDrag = onDrag,
             onDragEnd = onDragEnd,
+            onChangeWallpaper = onChangeWallpaper,
+            onAddWidget = onAddWidget,
         )
         if (!isDefaultHome) {
             SetHomePrompt(onSetDefaultHome)

@@ -36,6 +36,8 @@ import com.somalapuram.pclauncher.core.design.PcMotion
 import com.somalapuram.pclauncher.core.design.PcSize
 import com.somalapuram.pclauncher.core.design.PcSpacing
 import com.somalapuram.pclauncher.core.design.SurfaceTreatment
+import com.somalapuram.pclauncher.feature.shell.tray.SystemTray
+import com.somalapuram.pclauncher.feature.shell.tray.TrayState
 
 /**
  * The one bar (SRS §6.3): Start at the left, dock centred, window chips after a separator,
@@ -67,6 +69,7 @@ fun ShellBar(
     onItemDragStart: (DockItem, androidx.compose.ui.geometry.Offset) -> Unit = { _, _ -> },
     onItemDrag: (androidx.compose.ui.geometry.Offset) -> Unit = {},
     onItemDragEnd: () -> Unit = {},
+    tray: TrayState = TrayState(),
 ) {
     val colors = LocalPcColors.current
     val density = LocalDensity.current
@@ -180,6 +183,9 @@ fun ShellBar(
                     .align(Alignment.CenterVertically),
             )
         }
+
+        Spacer(Modifier.width(PcSpacing.Medium))
+        SystemTray(state = tray, modifier = Modifier.align(Alignment.CenterVertically))
 
         Spacer(Modifier.width(PcSpacing.Small))
         ShowDesktopHandle(onClick = onShowDesktop, modifier = Modifier.align(Alignment.CenterVertically))

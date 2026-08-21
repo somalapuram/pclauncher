@@ -13,7 +13,12 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.remember
 import com.somalapuram.pclauncher.core.apps.AppEntry
 import com.somalapuram.pclauncher.core.design.PcTheme
+import android.content.Intent
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import com.somalapuram.pclauncher.desktop.IconResolver
+import com.somalapuram.pclauncher.feature.shell.tray.SystemTraySource
+import com.somalapuram.pclauncher.feature.shell.tray.TrayState
 import com.somalapuram.pclauncher.di.HomeEntryPoint
 import dagger.hilt.android.EntryPointAccessors
 
@@ -51,8 +56,12 @@ class HomeActivity : ComponentActivity() {
         // Start menu and the desktop cannot disagree about what is pinned.
         val launcher = AppLauncher(applicationContext)
 
+        val traySource = SystemTraySource(applicationContext)
+
         setContent {
             val dark = isSystemInDarkTheme()
+            val tray by remember { traySource.trayState() }
+                .collectAsState(initial = TrayState())
             // Rebuilt when the theme flips, so the dock reloads icons baked for the new palette
             // rather than showing dark-glass tiles on a light desktop.
             val iconFor = remember(dark) { iconResolverFor(dark) }
@@ -64,6 +73,8 @@ class HomeActivity : ComponentActivity() {
                     iconFor = iconFor,
                     onLaunchApp = { launcher.launch(it) },
                     onTogglePin = { entry -> shell?.togglePin(entry) },
+                    tray = tray,
+                    onChangeWallpaper = { openWallpaperPicker() },
                     outcome = outcome,
                     isDefaultHome = HomeRole.isDefault(this),
                     onSetDefaultHome = { startActivity(HomeRole.requestIntent(this)) },
@@ -72,6 +83,18 @@ class HomeActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    /**
+     * Hand wallpaper selection to the system.
+     *
+     * A launcher has no business implementing a wallpaper picker: the user already has one, it
+     * knows about live wallpapers and crops, and ours would be a worse copy (icon-grid.md
+     * requirement 7).
+     */
+    private fun openWallpaperPicker() {
+        val intent = Intent(Intent.ACTION_SET_WALLPAPER)
+        runCatching { startActivity(Intent.createChooser(intent, "Change wallpaper")) }
     }
 
     private fun buildController(): ShellController {
