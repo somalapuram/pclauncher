@@ -72,7 +72,7 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 - [`desktop/icon-grid.md`](desktop/icon-grid.md) — persisted icon cells, drag-to-arrange, and the
   desktop’s own context menu (wallpaper, add widget). *Status: Accepted · Implemented.*
 - [`desktop/widget-host.md`](desktop/widget-host.md) — `AppWidgetHost` inside Compose, binding and
-  id lifecycle. *Status: Accepted · Partially implemented.*
+  id lifecycle. *Status: Accepted · Implemented (removal pending).*
 
 ### system
 - `system/privileged-provider.md` — Shizuku provider behind the T2 backend. *Status: Planned.*

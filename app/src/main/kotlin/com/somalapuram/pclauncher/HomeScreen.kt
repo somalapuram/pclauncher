@@ -318,6 +318,7 @@ private fun Desktop(
             onDragEnd = onDragEnd,
             onChangeWallpaper = onChangeWallpaper,
             onAddWidget = onAddWidget,
+            widgetViewFor = widgetViewFor,
         )
         if (!isDefaultHome) {
             SetHomePrompt(onSetDefaultHome)

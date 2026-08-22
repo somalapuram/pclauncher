@@ -1,6 +1,6 @@
 # Desktop — Widget Host
 
-Status: **Accepted · Partially implemented** (2026-08-20)
+Status: **Accepted · Implemented** (2026-08-22)
 
 Android app widgets on the desktop, added from its context menu. SRS §14 Phase 7; derives from
 SRS §6.6 and §11 (`BIND_APPWIDGET`). Depends on [`icon-grid.md`](icon-grid.md) for the cells they
@@ -58,8 +58,8 @@ a user who cancels the picker ten times has ten orphans.
 - [x] Widgets occupy cells sized from the provider's minimum span, and placement persists —
       verified: `widget:3|2|3` survives restart.
 - [x] Bind-outcome, span arithmetic and the id-release rule are pure and unit-tested.
-- [ ] **The provider's view does not inflate.** `getAppWidgetInfo` returns null for a bound id, so
-      every widget falls back to the placeholder. Diagnosed no further — see Notes.
+- [x] **The provider's view inflates.** Verified on device: Chrome's Dino widget renders its own
+      content on the desktop.
 - [ ] Removing a widget from its context menu is not implemented.
 - [x] A provider that fails to inflate yields a placeholder, not a crash — which is what is on
       screen today.
@@ -69,11 +69,18 @@ a user who cancels the picker ten times has ten orphans.
 
 - **Hosted through `AndroidView`.** `AppWidgetHostView` is a `View`; Compose hosts it rather than
   reimplementing it. Glance is for *providing* widgets and is not relevant to hosting them.
-- **What actually works, and what does not.** The whole flow up to display is verified on device:
-  picker, the system bind dialog, id allocation, placement at a free cell, persistence across
-  restart. What does not work is the last step — `AppWidgetManager.getAppWidgetInfo` returns null
-  for the bound id, so `createView` cannot build a view and the placeholder shows instead. The
-  guard doing its job is why the desktop still looks correct rather than blank.
+- **The rendering failure was a dropped parameter, not the widget API.** `Desktop` accepted a
+  `widgetViewFor` and never forwarded it to the grid, so the grid used its `{ null }` default and
+  every widget drew the placeholder. It compiled, the signature was right, the call site was right,
+  and nothing warned. The earlier diagnosis — that `getAppWidgetInfo` returned null — was simply
+  wrong: the method was never called. `WidgetWiringTest` now renders a placed widget and asserts
+  the resolver is asked, and it was confirmed to fail with the fix reverted rather than assumed to
+  guard anything.
+- **Orphaned ids are left alone on purpose.** `pm clear` wipes our layout but not the host's bound
+  ids, so a wiped store leaves ids with no placement. Pruning them at startup was considered and
+  rejected: a failed layout read is indistinguishable from an empty one, and deleting a user's
+  widgets because a store read hiccuped is exactly the class of harm GATE 4 exists to prevent.
+  Removing a widget deliberately, from its own menu, is the right place to release the id.
 - **A widget must not choose its cell from the store alone.** The first build did, and the widget
   landed on cell (0,0) directly on top of an auto-placed icon — precisely the failure this doc
   warned about. Auto-placement lived in the UI and never reached the store, so the store believed
