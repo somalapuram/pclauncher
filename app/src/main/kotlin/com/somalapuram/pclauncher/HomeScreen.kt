@@ -83,6 +83,18 @@ fun HomeScreen(
     widgetChoices: () -> List<WidgetChoice> = { emptyList() },
     onPickWidget: (WidgetChoice, DesktopCell) -> Unit = { _, _ -> },
     widgetViewFor: (Int) -> android.appwidget.AppWidgetHostView? = { null },
+    resizePermissionFor: (Int) -> com.somalapuram.pclauncher.core.data.layout.ResizePermission =
+        { com.somalapuram.pclauncher.core.data.layout.ResizePermission.None },
+    onResizeDrag: (
+        widgetId: Int,
+        edge: com.somalapuram.pclauncher.core.data.layout.ResizeEdge,
+        pixels: Float,
+        cellSize: Float,
+        columns: Int,
+        rows: Int,
+    ) -> Unit = { _, _, _, _, _, _ -> },
+    onResizeStart: (Int) -> Unit = {},
+    onResizeEnd: () -> Unit = {},
     isDefaultHome: Boolean,
     onSetDefaultHome: () -> Unit,
     onRetry: () -> Unit,
@@ -103,6 +115,7 @@ fun HomeScreen(
     }
 
     var desktopOrigin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    var desktopWidthPx by remember { mutableStateOf(0f) }
     var startOpen by remember { mutableStateOf(false) }
     var widgetPickerOpen by remember { mutableStateOf(false) }
 
@@ -165,9 +178,18 @@ fun HomeScreen(
                     onChangeWallpaper = onChangeWallpaper,
                     onAddWidget = { widgetPickerOpen = true },
                     widgetViewFor = widgetViewFor,
+                    resizePermissionFor = resizePermissionFor,
+                    onResizeDrag = { id, edge, pixels ->
+                        // The grid reports pixels; how many columns exist comes from its width.
+                        val columns = if (cellW > 0f) (desktopWidthPx / cellW).toInt() else 0
+                        onResizeDrag(id, edge, pixels, cellW, columns, gridRows)
+                    },
+                    onResizeStart = onResizeStart,
+                    onResizeEnd = onResizeEnd,
                     layout = effectiveLayout,
-                    onGridMetrics = { w, h, rows, origin ->
-                        cellW = w; cellH = h; gridRows = rows; desktopOrigin = origin
+                    onGridMetrics = { w, h, rows, origin, widthPx ->
+                        cellW = w; cellH = h; gridRows = rows
+                        desktopOrigin = origin; desktopWidthPx = widthPx
                     },
                 )
 
@@ -301,8 +323,12 @@ private fun Desktop(
     onChangeWallpaper: () -> Unit,
     onAddWidget: () -> Unit,
     widgetViewFor: (Int) -> android.appwidget.AppWidgetHostView?,
+    resizePermissionFor: (Int) -> com.somalapuram.pclauncher.core.data.layout.ResizePermission,
+    onResizeDrag: (Int, com.somalapuram.pclauncher.core.data.layout.ResizeEdge, Float) -> Unit,
+    onResizeStart: (Int) -> Unit,
+    onResizeEnd: () -> Unit,
     layout: DesktopLayout,
-    onGridMetrics: (Float, Float, Int, androidx.compose.ui.geometry.Offset) -> Unit,
+    onGridMetrics: (Float, Float, Int, androidx.compose.ui.geometry.Offset, Float) -> Unit,
 ) {
     if (apps.isNotEmpty()) {
         DesktopAppGrid(
@@ -319,6 +345,10 @@ private fun Desktop(
             onChangeWallpaper = onChangeWallpaper,
             onAddWidget = onAddWidget,
             widgetViewFor = widgetViewFor,
+            resizePermissionFor = resizePermissionFor,
+            onResizeDrag = onResizeDrag,
+            onResizeStart = onResizeStart,
+            onResizeEnd = onResizeEnd,
         )
         if (!isDefaultHome) {
             SetHomePrompt(onSetDefaultHome)

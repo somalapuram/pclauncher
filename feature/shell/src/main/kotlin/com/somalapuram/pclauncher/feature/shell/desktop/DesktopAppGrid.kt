@@ -23,6 +23,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
@@ -35,14 +38,19 @@ import androidx.compose.ui.unit.sp
 import com.somalapuram.pclauncher.core.apps.AppEntry
 import com.somalapuram.pclauncher.core.data.layout.DesktopCell
 import com.somalapuram.pclauncher.core.data.layout.DesktopLayout
+import com.somalapuram.pclauncher.core.data.layout.cellAt
 import com.somalapuram.pclauncher.core.data.layout.widgetIdOf
+import com.somalapuram.pclauncher.core.data.layout.ResizeEdge
+import com.somalapuram.pclauncher.core.data.layout.ResizePermission
 import com.somalapuram.pclauncher.feature.shell.widget.HostedWidget
+import com.somalapuram.pclauncher.feature.shell.widget.WidgetResizeFrame
 import com.somalapuram.pclauncher.core.design.LocalPcColors
 import com.somalapuram.pclauncher.core.design.PcCorners
 import com.somalapuram.pclauncher.core.design.PcSize
 import com.somalapuram.pclauncher.core.design.PcSpacing
 import com.somalapuram.pclauncher.feature.shell.bar.bitmapPainterFor
 import com.somalapuram.pclauncher.feature.shell.interaction.appItemGestures
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.roundToInt
 
 /**
@@ -76,16 +84,25 @@ fun DesktopAppGrid(
      * root coordinates. Origin is part of it because the drag position is in root space and the
      * grid is inset by its own padding.
      */
-    onGridMetrics: (cellWidthPx: Float, cellHeightPx: Float, rows: Int, originInRoot: Offset) -> Unit =
-        { _, _, _, _ -> },
+    onGridMetrics: (cellWidthPx: Float, cellHeightPx: Float, rows: Int, originInRoot: Offset, widthPx: Float) -> Unit =
+        { _, _, _, _, _ -> },
     /** Resolves a placed widget id to its hosted view. Null means the provider failed to inflate. */
     widgetViewFor: (Int) -> android.appwidget.AppWidgetHostView? = { null },
+    /** What the provider allows. `None` means the widget cannot enter resize mode at all. */
+    resizePermissionFor: (Int) -> ResizePermission = { ResizePermission.None },
+    /** Reports a handle drag in pixels; the caller turns it into cells. */
+    onResizeDrag: (widgetId: Int, edge: ResizeEdge, pixels: Float) -> Unit = { _, _, _ -> },
+    onResizeStart: (widgetId: Int) -> Unit = {},
+    onResizeEnd: () -> Unit = {},
 ) {
     val density = LocalDensity.current
     var desktopMenuOpen by remember { mutableStateOf(false) }
     // Where the menu was asked for. A context menu that opens far from the pointer makes the user
     // hunt for the thing they just summoned.
     var menuAt by remember { mutableStateOf(Offset.Zero) }
+    // Which widget is being resized, if any. One at a time: two frames on screen would make it
+    // ambiguous which one a handle belongs to.
+    var resizingWidget by remember { mutableStateOf<Int?>(null) }
     var heightPx by remember { mutableStateOf(0) }
     var originInRoot by remember { mutableStateOf(Offset.Zero) }
 
@@ -107,14 +124,28 @@ fun DesktopAppGrid(
             .onGloballyPositioned {
                 heightPx = it.size.height
                 originInRoot = it.positionInRoot()
-                onGridMetrics(cellWpx, cellHpx, rows, originInRoot)
+                onGridMetrics(cellWpx, cellHpx, rows, originInRoot, it.size.width.toFloat())
             }
             // The empty desktop's own gesture. Children are hit-tested first, so an icon handles
             // its own press and anything landing on bare desktop arrives here.
             .appItemGestures(
                 key = "desktop-surface",
-                onClick = {},
-                onContextMenu = { at -> menuAt = at; desktopMenuOpen = true },
+                // A tap on bare desktop also leaves resize mode — the same "click away to finish"
+                // every other editing surface has.
+                onClick = { resizingWidget = null },
+                onContextMenu = { at ->
+                    // A press that landed on a widget belongs to the widget — it means "resize
+                    // me", and the desktop's own menu must not open on top of it. Both gestures
+                    // fire at the same instant otherwise, and which one wins is a race.
+                    val over = cellAt(at.x, at.y, cellWpx, cellHpx, rows)
+                        ?.let { cell -> placed.placements.firstOrNull { it.covers(cell) } }
+                    val onWidget = over != null && widgetIdOf(over.id) != null
+
+                    if (!onWidget) {
+                        menuAt = at
+                        desktopMenuOpen = true
+                    }
+                },
             ),
     ) {
         DropdownMenu(
@@ -135,8 +166,10 @@ fun DesktopAppGrid(
         // Widgets share the icons' cell space, so they are drawn from the same placements.
         placed.placements.forEach { placement ->
             val widgetId = widgetIdOf(placement.id) ?: return@forEach
-            HostedWidget(
-                view = widgetViewFor(widgetId),
+            val permission = resizePermissionFor(widgetId)
+            val isResizing = resizingWidget == widgetId
+
+            Box(
                 modifier = Modifier
                     .offset {
                         IntOffset(
@@ -144,8 +177,28 @@ fun DesktopAppGrid(
                             (placement.cell.row * cellHpx).roundToInt(),
                         )
                     }
-                    .size(width = cellW * 2, height = cellH * 2),
-            )
+                    .size(
+                        width = cellW * placement.span.columns,
+                        height = cellH * placement.span.rows,
+                    )
+                    // Watched on the Initial pass and never consumed, so the widget keeps its own
+                    // taps — an AppWidgetHostView handling its clicks is the entire point of a
+                    // widget, and a resize gesture that swallowed them would break it.
+                    .longPressWithoutStealing(enabled = permission.isResizable) {
+                        resizingWidget = widgetId
+                    },
+            ) {
+                HostedWidget(view = widgetViewFor(widgetId), modifier = Modifier.fillMaxSize())
+
+                if (isResizing) {
+                    WidgetResizeFrame(
+                        permission = permission,
+                        onDragEdge = { edge, pixels -> onResizeDrag(widgetId, edge, pixels) },
+                        onDragStart = { onResizeStart(widgetId) },
+                        onDragEnd = onResizeEnd,
+                    )
+                }
+            }
         }
 
         entries.forEach { entry ->
@@ -239,5 +292,42 @@ private fun DesktopIcon(
                 onClick = { onTogglePin(); menuOpen = false },
             )
         }
+    }
+}
+
+/**
+ * Fire [onLongPress] after a hold, without taking the gesture from whatever is underneath.
+ *
+ * Used on hosted widgets: an `AppWidgetHostView` handles its own clicks, and consuming the press to
+ * detect a hold would break the widget's own buttons. Watching the **Initial** pass lets the
+ * container see the events first while leaving them entirely unconsumed, so the widget still gets
+ * everything it would have got.
+ */
+private fun Modifier.longPressWithoutStealing(
+    enabled: Boolean,
+    onLongPress: () -> Unit,
+): Modifier = if (!enabled) this else this.pointerInput(enabled) {
+    val slop = viewConfiguration.touchSlop
+    val longPressMillis = viewConfiguration.longPressTimeoutMillis
+
+    awaitEachGesture {
+        val down = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+            .changes.firstOrNull { it.pressed } ?: return@awaitEachGesture
+
+        var travelled = androidx.compose.ui.geometry.Offset.Zero
+        val held = withTimeoutOrNull(longPressMillis) {
+            while (true) {
+                val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                val change = event.changes.firstOrNull { it.id == down.id } ?: return@withTimeoutOrNull false
+                if (!change.pressed) return@withTimeoutOrNull false
+                travelled += change.positionChange()
+                // Moving means the user is doing something else — scrolling the widget, dragging
+                // inside it. Only a still finger means "resize me".
+                if (travelled.getDistance() > slop) return@withTimeoutOrNull false
+            }
+            @Suppress("UNREACHABLE_CODE") false
+        }
+
+        if (held == null) onLongPress()
     }
 }

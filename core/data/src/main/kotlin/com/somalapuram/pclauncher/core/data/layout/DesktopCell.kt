@@ -3,8 +3,36 @@ package com.somalapuram.pclauncher.core.data.layout
 /** A cell on the desktop grid. Column first, because the desktop fills column-major. */
 data class DesktopCell(val column: Int, val row: Int)
 
-/** Where one item sits. The id is a flattened component, as everywhere else. */
-data class DesktopPlacement(val id: String, val cell: DesktopCell)
+/** How many cells wide and tall something is. Icons are always 1×1; widgets are not. */
+data class DesktopSpan(val columns: Int = 1, val rows: Int = 1) {
+    companion object {
+        val Single = DesktopSpan(1, 1)
+    }
+}
+
+/** Where one item sits, and how much room it takes. */
+data class DesktopPlacement(
+    val id: String,
+    val cell: DesktopCell,
+    val span: DesktopSpan = DesktopSpan.Single,
+) {
+    /**
+     * Does this overlap [other]?
+     *
+     * With spans, "is this cell taken" becomes "do these rectangles intersect". Icons are 1×1, so
+     * their behaviour is unchanged — but the test has to live in one place or icons and widgets
+     * will eventually disagree about what is free.
+     */
+    fun overlaps(other: DesktopPlacement): Boolean =
+        cell.column < other.cell.column + other.span.columns &&
+            other.cell.column < cell.column + span.columns &&
+            cell.row < other.cell.row + other.span.rows &&
+            other.cell.row < cell.row + span.rows
+
+    fun covers(target: DesktopCell): Boolean =
+        target.column >= cell.column && target.column < cell.column + span.columns &&
+            target.row >= cell.row && target.row < cell.row + span.rows
+}
 
 /**
  * The arrangement.
@@ -16,29 +44,45 @@ data class DesktopPlacement(val id: String, val cell: DesktopCell)
 data class DesktopLayout(val placements: List<DesktopPlacement> = emptyList()) {
 
     private val byId = placements.associateBy { it.id }
-    private val occupied = placements.map { it.cell }.toSet()
 
     fun cellFor(id: String): DesktopCell? = byId[id]?.cell
 
-    fun isOccupied(cell: DesktopCell): Boolean = cell in occupied
+    fun spanFor(id: String): DesktopSpan? = byId[id]?.span
 
-    /** Who is in this cell, if anyone. */
-    fun idAt(cell: DesktopCell): String? = placements.firstOrNull { it.cell == cell }?.id
+    fun placementFor(id: String): DesktopPlacement? = byId[id]
+
+    fun isOccupied(cell: DesktopCell): Boolean = placements.any { it.covers(cell) }
+
+    /** Who covers this cell, if anyone. */
+    fun idAt(cell: DesktopCell): String? = placements.firstOrNull { it.covers(cell) }?.id
 
     /**
-     * Move [id] to [cell].
+     * Move [id] to [cell], keeping its span.
      *
-     * Refuses rather than overwrites when the target is taken by someone else: silently destroying
-     * a placement the user made is worse than declining the drop (icon-grid.md requirement 4).
-     * Returns null when the move is refused, so the caller can put the icon back.
+     * Refuses rather than overwrites when the target overlaps someone else: silently destroying a
+     * placement the user made is worse than declining the drop (icon-grid.md requirement 4).
+     * Returns null when refused, so the caller can put the item back.
      */
     fun moved(id: String, cell: DesktopCell): DesktopLayout? {
-        val current = byId[id]
-        if (current?.cell == cell) return this
-        val sittingThere = idAt(cell)
-        if (sittingThere != null && sittingThere != id) return null
+        val existing = byId[id]
+        val span = existing?.span ?: DesktopSpan.Single
+        return placedAt(id, cell, span)
+    }
 
-        return DesktopLayout(placements.filterNot { it.id == id } + DesktopPlacement(id, cell))
+    /** Resize [id] in place. Refused, like a move, when the new rectangle would overlap. */
+    fun resized(id: String, span: DesktopSpan): DesktopLayout? {
+        val existing = byId[id] ?: return null
+        if (span.columns < 1 || span.rows < 1) return null
+        if (existing.span == span) return this
+        return placedAt(id, existing.cell, span)
+    }
+
+    private fun placedAt(id: String, cell: DesktopCell, span: DesktopSpan): DesktopLayout? {
+        val candidate = DesktopPlacement(id, cell, span)
+        val clash = placements.any { it.id != id && it.overlaps(candidate) }
+        if (clash) return null
+        if (byId[id] == candidate) return this
+        return DesktopLayout(placements.filterNot { it.id == id } + candidate)
     }
 
     fun without(id: String): DesktopLayout =
@@ -77,7 +121,9 @@ fun withAutoPlacement(
     var result = layout
     for (id in ids) {
         if (result.cellFor(id) != null) continue
-        result = DesktopLayout(result.placements + DesktopPlacement(id, firstFreeCell(result, rowsPerColumn)))
+        result = DesktopLayout(
+            result.placements + DesktopPlacement(id, firstFreeCell(result, rowsPerColumn)),
+        )
     }
     return result
 }
@@ -101,25 +147,46 @@ fun cellAt(
     return DesktopCell(column, row)
 }
 
-/** Encodes a layout for storage; skips malformed entries on read rather than losing the desktop. */
+/**
+ * Encodes a layout for storage; skips malformed entries on read rather than losing the desktop.
+ *
+ * Written as `id|col|row|spanCols|spanRows`. Three-field lines predate spans and decode as 1×1 —
+ * dropping them would silently clear a desktop that someone had arranged.
+ */
 object DesktopLayoutCodec {
 
-    fun encode(layout: DesktopLayout): String =
-        layout.placements.joinToString("\n") { "${it.id}|${it.cell.column}|${it.cell.row}" }
+    fun encode(layout: DesktopLayout): String = layout.placements.joinToString("\n") {
+        "${it.id}|${it.cell.column}|${it.cell.row}|${it.span.columns}|${it.span.rows}"
+    }
 
     fun decode(raw: String?): DesktopLayout {
         if (raw.isNullOrBlank()) return DesktopLayout()
         val placements = raw.split("\n").mapNotNull { line ->
             val parts = line.split("|")
-            if (parts.size != 3) return@mapNotNull null
+            if (parts.size != 3 && parts.size != 5) return@mapNotNull null
+
             val id = parts[0].takeIf { it.isNotBlank() } ?: return@mapNotNull null
             val column = parts[1].toIntOrNull() ?: return@mapNotNull null
             val row = parts[2].toIntOrNull() ?: return@mapNotNull null
             if (column < 0 || row < 0) return@mapNotNull null
-            DesktopPlacement(id, DesktopCell(column, row))
+
+            val span = if (parts.size == 5) {
+                val cols = parts[3].toIntOrNull() ?: return@mapNotNull null
+                val rows = parts[4].toIntOrNull() ?: return@mapNotNull null
+                if (cols < 1 || rows < 1) return@mapNotNull null
+                DesktopSpan(cols, rows)
+            } else {
+                DesktopSpan.Single
+            }
+
+            DesktopPlacement(id, DesktopCell(column, row), span)
         }
-        // Two entries claiming one cell would make occupancy ambiguous; the first wins.
-        val seen = mutableSetOf<DesktopCell>()
-        return DesktopLayout(placements.filter { seen.add(it.cell) })
+
+        // Two entries claiming the same space would make occupancy ambiguous; the first wins.
+        val kept = mutableListOf<DesktopPlacement>()
+        for (placement in placements) {
+            if (kept.none { it.overlaps(placement) }) kept += placement
+        }
+        return DesktopLayout(kept)
     }
 }

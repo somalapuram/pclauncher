@@ -133,3 +133,52 @@ class DesktopLayoutTest {
         assertTrue(DesktopLayoutCodec.decode("  ").placements.isEmpty())
     }
 }
+
+/** Spans, added by widget-resize.md. Icons stay 1×1, so the old behaviour must be untouched. */
+class DesktopSpanTest {
+
+    @org.junit.Test
+    fun `a placement written before spans existed decodes as one by one`() {
+        // Dropping these would silently clear a desktop someone had arranged.
+        val layout = DesktopLayoutCodec.decode("com.a/.Main|1|2")
+        assertEquals(DesktopSpan.Single, layout.spanFor("com.a/.Main"))
+        assertEquals(DesktopCell(1, 2), layout.cellFor("com.a/.Main"))
+    }
+
+    @org.junit.Test
+    fun `spans round-trip`() {
+        val layout = DesktopLayout(
+            listOf(DesktopPlacement("widget:1", DesktopCell(2, 1), DesktopSpan(3, 2))),
+        )
+        assertEquals(layout, DesktopLayoutCodec.decode(DesktopLayoutCodec.encode(layout)))
+    }
+
+    @org.junit.Test
+    fun `a zero span in storage is rejected`() {
+        assertTrue(DesktopLayoutCodec.decode("widget:1|0|0|0|2").placements.isEmpty())
+    }
+
+    @org.junit.Test
+    fun `a wide placement occupies every cell it covers`() {
+        val layout = DesktopLayout(
+            listOf(DesktopPlacement("widget:1", DesktopCell(1, 1), DesktopSpan(2, 2))),
+        )
+        assertTrue(layout.isOccupied(DesktopCell(1, 1)))
+        assertTrue(layout.isOccupied(DesktopCell(2, 2)))
+        assertTrue(!layout.isOccupied(DesktopCell(3, 1)))
+    }
+
+    @org.junit.Test
+    fun `an icon cannot be placed inside a widget`() {
+        val layout = DesktopLayout(
+            listOf(DesktopPlacement("widget:1", DesktopCell(1, 1), DesktopSpan(2, 2))),
+        )
+        assertNull(layout.moved("com.a/.Main", DesktopCell(2, 2)))
+    }
+
+    @org.junit.Test
+    fun `overlapping entries in storage resolve to one`() {
+        val raw = "widget:1|0|0|2|2\ncom.a/.Main|1|1|1|1"
+        assertEquals(1, DesktopLayoutCodec.decode(raw).placements.size)
+    }
+}

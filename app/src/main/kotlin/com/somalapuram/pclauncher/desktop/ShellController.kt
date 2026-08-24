@@ -8,6 +8,12 @@ import com.somalapuram.pclauncher.core.data.pins.PinStore
 import com.somalapuram.pclauncher.core.data.layout.DesktopCell
 import com.somalapuram.pclauncher.core.data.layout.DesktopLayout
 import com.somalapuram.pclauncher.core.data.layout.DesktopLayoutStore
+import com.somalapuram.pclauncher.core.data.layout.DesktopPlacement
+import com.somalapuram.pclauncher.core.data.layout.DesktopSpan
+import com.somalapuram.pclauncher.core.data.layout.ResizeEdge
+import com.somalapuram.pclauncher.core.data.layout.ResizePermission
+import com.somalapuram.pclauncher.core.data.layout.cellsDragged
+import com.somalapuram.pclauncher.core.data.layout.resizedBy
 import com.somalapuram.pclauncher.core.data.layout.widgetPlacementId
 import com.somalapuram.pclauncher.core.data.pins.Pins
 import kotlinx.coroutines.CoroutineScope
@@ -63,8 +69,10 @@ class ShellController(
      * about placements the user has made, and picking a free cell from it alone drops the widget
      * straight on top of an auto-placed icon.
      */
-    fun addWidget(widgetId: Int, cell: DesktopCell) {
-        scope.launch { runCatching { layoutStore.place(widgetPlacementId(widgetId), cell) } }
+    fun addWidget(widgetId: Int, cell: DesktopCell, span: DesktopSpan) {
+        scope.launch {
+            runCatching { layoutStore.placeSpanning(widgetPlacementId(widgetId), cell, span) }
+        }
     }
 
     /** Move an icon to a cell. A refused move leaves the store untouched and the icon springs back. */
@@ -85,6 +93,66 @@ class ShellController(
                 if (_pins.value.contains(pin)) pinStore.unpin(pin) else pinStore.pin(pin)
             }
         }
+    }
+
+    /**
+     * The placement a resize is being measured against.
+     *
+     * Handle drags report *cumulative* pixels, so each report must be applied to where the widget
+     * was when the drag began. Applying them to the current span instead compounds — a one-cell
+     * drag reported ten times becomes ten cells.
+     */
+    private var resizeBase: DesktopPlacement? = null
+
+    fun beginResize(widgetId: Int) {
+        resizeBase = _layout.value.placementFor(widgetPlacementId(widgetId))
+    }
+
+    fun endResize() {
+        resizeBase = null
+    }
+
+    /**
+     * Apply a handle drag.
+     *
+     * The whole decision — permitted axis, minimum span, grid bounds, overlap — lives in
+     * `resizedBy`, so this only turns pixels into cells and persists what comes back. A refused
+     * resize returns null and nothing is written, which is what leaves the widget where it was.
+     */
+    fun resizeWidget(
+        widgetId: Int,
+        edge: ResizeEdge,
+        pixels: Float,
+        cellSize: Float,
+        permission: ResizePermission,
+        columnsAvailable: Int,
+        rowsAvailable: Int,
+        onApplied: (widthCells: Int, heightCells: Int) -> Unit,
+    ) {
+        val id = widgetPlacementId(widgetId)
+        val cells = cellsDragged(pixels, cellSize)
+        if (cells == 0) return
+
+        // Measure from where the widget was when the drag started, not from where the last report
+        // left it.
+        val base = resizeBase ?: _layout.value.placementFor(id) ?: return
+        val baseline = DesktopLayout(
+            _layout.value.placements.filterNot { it.id == id } + base,
+        )
+
+        val next = resizedBy(
+            layout = baseline,
+            id = id,
+            edge = edge,
+            deltaCells = cells,
+            permission = permission,
+            columnsAvailable = columnsAvailable,
+            rowsAvailable = rowsAvailable,
+        ) ?: return
+
+        val span = next.spanFor(id) ?: return
+        scope.launch { runCatching { layoutStore.resize(id, span) } }
+        onApplied(span.columns, span.rows)
     }
 
     fun stop() = repository.stop()

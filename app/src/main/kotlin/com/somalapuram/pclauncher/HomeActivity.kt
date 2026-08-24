@@ -99,6 +99,33 @@ class HomeActivity : ComponentActivity() {
                     widgetChoices = { widgetChoices() },
                     onPickWidget = { choice, cell -> beginAddWidget(choice.id, cell) },
                     widgetViewFor = { id -> widgets?.createView(id) },
+                    resizePermissionFor = { id ->
+                        widgets?.resizePermission(id, DesktopCellDp)
+                            ?: com.somalapuram.pclauncher.core.data.layout.ResizePermission.None
+                    },
+                    onResizeStart = { id -> shell?.beginResize(id) },
+                    onResizeEnd = { shell?.endResize() },
+                    onResizeDrag = { id, edge, pixels, cellSize, columns, rows ->
+                        val permission = widgets?.resizePermission(id, DesktopCellDp)
+                            ?: com.somalapuram.pclauncher.core.data.layout.ResizePermission.None
+                        shell?.resizeWidget(
+                            widgetId = id,
+                            edge = edge,
+                            pixels = pixels,
+                            cellSize = cellSize,
+                            permission = permission,
+                            columnsAvailable = columns,
+                            rowsAvailable = rows,
+                        ) { widthCells, heightCells ->
+                            // The provider has to be told, or it keeps rendering for the old size
+                            // and the resize is just a stretched picture of the old widget.
+                            widgets?.applySize(
+                                id,
+                                widthCells * DesktopCellDp,
+                                heightCells * DesktopCellHeightDp,
+                            )
+                        }
+                    },
                     outcome = outcome,
                     isDefaultHome = HomeRole.isDefault(this),
                     onSetDefaultHome = { startActivity(HomeRole.requestIntent(this)) },
@@ -207,7 +234,18 @@ class HomeActivity : ComponentActivity() {
 
     private fun placePendingWidget() {
         val cell = pendingCell
-        if (cell != null) shell?.addWidget(pendingWidgetId, cell)
+        // The provider's own minimum, so a widget appears at the size it asked for rather than
+        // squeezed into one cell and left for the user to fix.
+        val info = widgets?.providerFor(pendingWidgetId)
+        val span = com.somalapuram.pclauncher.core.data.layout.DesktopSpan(
+            columns = com.somalapuram.pclauncher.feature.shell.widget.cellsFor(
+                info?.minWidth ?: 0, DesktopCellDp,
+            ),
+            rows = com.somalapuram.pclauncher.feature.shell.widget.cellsFor(
+                info?.minHeight ?: 0, DesktopCellHeightDp,
+            ),
+        )
+        if (cell != null) shell?.addWidget(pendingWidgetId, cell, span)
         pendingWidgetId = WidgetController.INVALID_ID
         pendingProvider = null
         pendingCell = null
@@ -252,6 +290,10 @@ class HomeActivity : ComponentActivity() {
     private fun entryPoint(): HomeEntryPoint =
         EntryPointAccessors.fromApplication(applicationContext, HomeEntryPoint::class.java)
 }
+
+/** The desktop's cell size, in dp — the unit a widget's span is measured in. */
+private const val DesktopCellDp = 96
+private const val DesktopCellHeightDp = 104
 
 /** Stand-ins for a shell that could not be built, so the desktop still renders. */
 private val EmptyInventory = kotlinx.coroutines.flow.MutableStateFlow(

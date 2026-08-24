@@ -15,6 +15,14 @@ interface DesktopLayoutStore {
     suspend fun place(id: String, cell: DesktopCell)
 
     /**
+     * Place something that occupies more than one cell.
+     *
+     * Widgets arrive with a size the provider asked for; placing them 1×1 and leaving the user to
+     * fix it shows every widget wrong on first sight.
+     */
+    suspend fun placeSpanning(id: String, cell: DesktopCell, span: DesktopSpan)
+
+    /**
      * Put a widget on the desktop.
      *
      * Widgets share the icons' cell space rather than living in a parallel store: two stores would
@@ -22,6 +30,9 @@ interface DesktopLayoutStore {
      * exactly the bug that would produce.
      */
     suspend fun addWidget(widgetId: Int, rowsPerColumn: Int)
+
+    /** Resize a placement in place. A refused resize leaves the store untouched. */
+    suspend fun resize(id: String, span: DesktopSpan)
 }
 
 /** Widget placements are ordinary placements under a reserved id prefix. */
@@ -53,6 +64,30 @@ class DataStoreDesktopLayoutStore(
                 val current = DesktopLayoutCodec.decode(prefs[KEY])
                 // A refused move leaves the store untouched, so the icon springs back.
                 val next = current.moved(id, cell) ?: return@edit
+                prefs[KEY] = DesktopLayoutCodec.encode(next)
+            }
+        }
+        Unit
+    }
+
+    override suspend fun placeSpanning(id: String, cell: DesktopCell, span: DesktopSpan) {
+        runCatching {
+            dataStore.edit { prefs ->
+                val current = DesktopLayoutCodec.decode(prefs[KEY])
+                val candidate = DesktopPlacement(id, cell, span)
+                if (current.placements.any { it.id != id && it.overlaps(candidate) }) return@edit
+                val next = DesktopLayout(current.placements.filterNot { it.id == id } + candidate)
+                prefs[KEY] = DesktopLayoutCodec.encode(next)
+            }
+        }
+        Unit
+    }
+
+    override suspend fun resize(id: String, span: DesktopSpan) {
+        runCatching {
+            dataStore.edit { prefs ->
+                val current = DesktopLayoutCodec.decode(prefs[KEY])
+                val next = current.resized(id, span) ?: return@edit
                 prefs[KEY] = DesktopLayoutCodec.encode(next)
             }
         }
@@ -92,5 +127,15 @@ class InMemoryDesktopLayoutStore(initial: DesktopLayout = DesktopLayout()) : Des
         val id = widgetPlacementId(widgetId)
         if (state.value.cellFor(id) != null) return
         state.value = state.value.moved(id, firstFreeCell(state.value, rowsPerColumn)) ?: state.value
+    }
+
+    override suspend fun resize(id: String, span: DesktopSpan) {
+        state.value = state.value.resized(id, span) ?: state.value
+    }
+
+    override suspend fun placeSpanning(id: String, cell: DesktopCell, span: DesktopSpan) {
+        val candidate = DesktopPlacement(id, cell, span)
+        if (state.value.placements.any { it.id != id && it.overlaps(candidate) }) return
+        state.value = DesktopLayout(state.value.placements.filterNot { it.id == id } + candidate)
     }
 }

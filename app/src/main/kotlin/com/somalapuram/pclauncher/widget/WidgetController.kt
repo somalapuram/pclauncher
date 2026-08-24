@@ -7,7 +7,9 @@ import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
 import android.content.Intent
 import com.somalapuram.pclauncher.feature.shell.widget.BindOutcome
+import com.somalapuram.pclauncher.core.data.layout.ResizePermission
 import com.somalapuram.pclauncher.feature.shell.widget.bindOutcomeFor
+import com.somalapuram.pclauncher.feature.shell.widget.cellsFor
 import com.somalapuram.pclauncher.feature.shell.widget.shouldReleaseId
 
 /**
@@ -40,6 +42,7 @@ class WidgetController(
     fun releaseId(id: Int) {
         if (id == INVALID_ID) return
         views.remove(id)
+        permissions.remove(id)
         runCatching { host.deleteAppWidgetId(id) }
     }
 
@@ -82,7 +85,49 @@ class WidgetController(
     fun providerFor(id: Int): AppWidgetProviderInfo? =
         runCatching { manager.getAppWidgetInfo(id) }.getOrNull()
 
+    /**
+     * What the provider allows, translated into the shell's own terms.
+     *
+     * `minResizeWidth` is the floor *when resized*, which is often smaller than the widget's
+     * default size — using `minWidth` here would refuse shrinks the provider explicitly permits.
+     */
+    fun resizePermission(id: Int, cellSizeDp: Int): ResizePermission {
+        permissions[id]?.let { return it }
+
+        val info = providerFor(id) ?: return ResizePermission.None
+        val mode = info.resizeMode
+        return ResizePermission(
+            horizontal = mode and AppWidgetProviderInfo.RESIZE_HORIZONTAL != 0,
+            vertical = mode and AppWidgetProviderInfo.RESIZE_VERTICAL != 0,
+            minColumns = cellsFor(info.minResizeWidth.takeIf { it > 0 } ?: info.minWidth, cellSizeDp),
+            minRows = cellsFor(info.minResizeHeight.takeIf { it > 0 } ?: info.minHeight, cellSizeDp),
+        ).also { permissions[id] = it }
+    }
+
+    /**
+     * Tell a widget how big it now is.
+     *
+     * Without this the provider keeps rendering for its old size and the resize is just a stretched
+     * picture of the widget it used to be (widget-resize.md requirement 7).
+     */
+    fun applySize(id: Int, widthDp: Int, heightDp: Int) {
+        val view = views[id] ?: return
+        runCatching {
+            view.updateAppWidgetSize(
+                android.os.Bundle(),
+                listOf(android.util.SizeF(widthDp.toFloat(), heightDp.toFloat())),
+            )
+        }
+    }
+
     private val views = mutableMapOf<Int, android.appwidget.AppWidgetHostView>()
+
+    /**
+     * Cached because this is read during composition, and `getAppWidgetInfo` is a binder call — one
+     * per widget per frame is a real cost on a device that already composites on the CPU. A
+     * provider's declared resize policy does not change while it is installed.
+     */
+    private val permissions = mutableMapOf<Int, ResizePermission>()
 
     /**
      * The hosted view, created once per id.

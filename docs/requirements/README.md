@@ -71,6 +71,8 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 ### desktop
 - [`desktop/icon-grid.md`](desktop/icon-grid.md) — persisted icon cells, drag-to-arrange, and the
   desktop’s own context menu (wallpaper, add widget). *Status: Accepted · Implemented.*
+- [`desktop/widget-resize.md`](desktop/widget-resize.md) — long-press a widget to resize it by
+  dragging, within the provider's permitted axes. *Status: Accepted · Implemented.*
 - [`desktop/widget-host.md`](desktop/widget-host.md) — `AppWidgetHost` inside Compose, binding and
   id lifecycle. *Status: Accepted · Implemented (removal pending).*
 
