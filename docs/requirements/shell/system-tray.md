@@ -27,7 +27,9 @@ indicator actually needs.
 
 **It is a status area, not a control panel.** This slice *shows* state. Popovers that let the user
 toggle Wi-Fi or change volume are their own work, and pretending otherwise leads to a tray that is
-half-interactive and inconsistent about it.
+half-interactive and inconsistent about it. *(Superseded by
+[`tray-controls.md`](tray-controls.md), which adds the popover, a volume control, and drawn glyphs
+in place of the text below.)*
 
 ## Requirement
 

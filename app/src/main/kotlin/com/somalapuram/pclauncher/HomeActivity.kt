@@ -76,6 +76,9 @@ class HomeActivity : ComponentActivity() {
         widgets?.startListening()
 
         val traySource = SystemTraySource(applicationContext)
+        // The activity, not the application context: `startActivity` from an application context
+        // needs NEW_TASK, and these launches want to sit beside the desktop rather than inside it.
+        val trayActions = com.somalapuram.pclauncher.feature.shell.tray.SystemTrayActions(this)
 
         setContent {
             val dark = isSystemInDarkTheme()
@@ -95,6 +98,7 @@ class HomeActivity : ComponentActivity() {
                     onTogglePin = { entry -> shell?.togglePin(entry) },
                     onPlace = { entry, cell -> shell?.place(entry, cell) },
                     tray = tray,
+                    onTrayAction = { action -> trayActions.perform(action) },
                     onChangeWallpaper = { openWallpaperPicker() },
                     widgetChoices = { widgetChoices() },
                     onPickWidget = { choice, cell -> beginAddWidget(choice.id, cell) },

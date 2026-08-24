@@ -11,6 +11,7 @@ data class TrayState(
     val battery: BatteryState = BatteryState.Unknown,
     val wifi: ConnectionState = ConnectionState.Unknown,
     val bluetooth: ConnectionState = ConnectionState.Unknown,
+    val volume: VolumeState = VolumeState(),
 )
 
 /**

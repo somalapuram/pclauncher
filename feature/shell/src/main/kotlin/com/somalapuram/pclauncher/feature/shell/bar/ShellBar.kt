@@ -70,6 +70,7 @@ fun ShellBar(
     onItemDrag: (androidx.compose.ui.geometry.Offset) -> Unit = {},
     onItemDragEnd: () -> Unit = {},
     tray: TrayState = TrayState(),
+    onTrayAction: (com.somalapuram.pclauncher.feature.shell.tray.TrayAction) -> Unit = {},
 ) {
     val colors = LocalPcColors.current
     val density = LocalDensity.current
@@ -185,7 +186,11 @@ fun ShellBar(
         }
 
         Spacer(Modifier.width(PcSpacing.Medium))
-        SystemTray(state = tray, modifier = Modifier.align(Alignment.CenterVertically))
+        SystemTray(
+            state = tray,
+            onAction = onTrayAction,
+            modifier = Modifier.align(Alignment.CenterVertically),
+        )
 
         Spacer(Modifier.width(PcSpacing.Small))
         ShowDesktopHandle(onClick = onShowDesktop, modifier = Modifier.align(Alignment.CenterVertically))

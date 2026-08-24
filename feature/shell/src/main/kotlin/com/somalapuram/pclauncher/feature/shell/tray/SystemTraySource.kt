@@ -68,6 +68,21 @@ class SystemTraySource(private val context: Context) {
         // already correct rather than empty until something changes.
         sticky?.let { push { s -> s.copy(battery = it.toBattery()) } }
         push { it.copy(bluetooth = readBluetooth()) }
+        push { it.copy(volume = readVolume()) }
+
+        // Volume changed anywhere — the hardware keys, another app, the system panel — arrives
+        // here. An observer rather than a poll, for the same reason nothing else in this file
+        // loops (SRS §12).
+        val volumeObserver = object : android.database.ContentObserver(
+            android.os.Handler(android.os.Looper.getMainLooper()),
+        ) {
+            override fun onChange(selfChange: Boolean) = push { it.copy(volume = readVolume()) }
+        }
+        runCatching {
+            context.contentResolver.registerContentObserver(
+                Settings.System.CONTENT_URI, true, volumeObserver,
+            )
+        }
 
         val connectivity = context.getSystemService(ConnectivityManager::class.java)
         val networkCallback = object : ConnectivityManager.NetworkCallback() {
@@ -85,8 +100,19 @@ class SystemTraySource(private val context: Context) {
         awaitClose {
             runCatching { context.unregisterReceiver(receiver) }
             runCatching { connectivity?.unregisterNetworkCallback(networkCallback) }
+            runCatching { context.contentResolver.unregisterContentObserver(volumeObserver) }
         }
     }
+
+    /** The music stream: what "volume" means on a desktop, and the one an app may change. */
+    private fun readVolume(): VolumeState = runCatching {
+        val audio = context.getSystemService(android.media.AudioManager::class.java)
+            ?: return@runCatching VolumeState()
+        VolumeState(
+            level = audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC),
+            max = audio.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC),
+        )
+    }.getOrDefault(VolumeState())
 
     private fun formatNow(): String =
         DateFormat.getTimeFormat(context).format(Date())

@@ -79,6 +79,7 @@ fun HomeScreen(
     onTogglePin: (AppEntry) -> Unit = {},
     onPlace: (AppEntry, DesktopCell) -> Unit = { _, _ -> },
     tray: TrayState = TrayState(),
+    onTrayAction: (com.somalapuram.pclauncher.feature.shell.tray.TrayAction) -> Unit = {},
     onChangeWallpaper: () -> Unit = {},
     widgetChoices: () -> List<WidgetChoice> = { emptyList() },
     onPickWidget: (WidgetChoice, DesktopCell) -> Unit = { _, _ -> },
@@ -236,6 +237,7 @@ fun HomeScreen(
                 onItemDrag = { delta -> drag.moveTo(drag.position + delta, barTopY, barBottomY) },
                 onItemDragEnd = { finishDrag() },
                 tray = tray,
+                onTrayAction = onTrayAction,
                 modifier = Modifier.padding(
                     horizontal = PcSpacing.Large,
                     vertical = PcSpacing.Small,
