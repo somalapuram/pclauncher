@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -94,6 +95,9 @@ fun DesktopAppGrid(
     onResizeDrag: (widgetId: Int, edge: ResizeEdge, pixels: Float) -> Unit = { _, _, _ -> },
     onResizeStart: (widgetId: Int) -> Unit = {},
     onResizeEnd: () -> Unit = {},
+    /** Drop a widget on a new cell. Refused by the store when it would overlap. */
+    onMoveWidget: (widgetId: Int, cell: DesktopCell) -> Unit = { _, _ -> },
+    onRemoveWidget: (widgetId: Int) -> Unit = {},
 ) {
     val density = LocalDensity.current
     var desktopMenuOpen by remember { mutableStateOf(false) }
@@ -104,6 +108,7 @@ fun DesktopAppGrid(
     // ambiguous which one a handle belongs to.
     var resizingWidget by remember { mutableStateOf<Int?>(null) }
     var heightPx by remember { mutableStateOf(0) }
+    var widthPx by remember { mutableStateOf(0) }
     var originInRoot by remember { mutableStateOf(Offset.Zero) }
 
     val cellW = PcSize.DesktopGridCell
@@ -111,11 +116,19 @@ fun DesktopAppGrid(
     val cellWpx = with(density) { cellW.toPx() }
     val cellHpx = with(density) { cellH.toPx() }
     val rows = if (cellHpx > 0f) (heightPx / cellHpx).toInt().coerceAtLeast(1) else 1
+    val columns = if (cellWpx > 0f) (widthPx / cellWpx).toInt().coerceAtLeast(1) else 1
 
     // [layout] arrives already auto-placed. Doing it here instead would keep the arrangement
     // private to the UI, and anything else choosing a free cell — adding a widget — would think
     // every cell was empty and drop straight on top of an icon.
     val placed = layout
+
+    // `appItemGestures` creates its pointer handler once and keeps the lambdas it was given, so
+    // anything the guard below reads has to be read through state that updates rather than
+    // captured by value. Captured, it decides against the empty layout and the zero-height grid of
+    // the very first frame — and then the desktop's menu opens on top of every widget, forever.
+    val currentPlaced by rememberUpdatedState(placed)
+    val currentRows by rememberUpdatedState(rows)
 
     Box(
         modifier = modifier
@@ -123,6 +136,7 @@ fun DesktopAppGrid(
             .padding(PcSpacing.Large)
             .onGloballyPositioned {
                 heightPx = it.size.height
+                widthPx = it.size.width
                 originInRoot = it.positionInRoot()
                 onGridMetrics(cellWpx, cellHpx, rows, originInRoot, it.size.width.toFloat())
             }
@@ -137,8 +151,8 @@ fun DesktopAppGrid(
                     // A press that landed on a widget belongs to the widget — it means "resize
                     // me", and the desktop's own menu must not open on top of it. Both gestures
                     // fire at the same instant otherwise, and which one wins is a race.
-                    val over = cellAt(at.x, at.y, cellWpx, cellHpx, rows)
-                        ?.let { cell -> placed.placements.firstOrNull { it.covers(cell) } }
+                    val over = cellAt(at.x, at.y, cellWpx, cellHpx, currentRows)
+                        ?.let { cell -> currentPlaced.placements.firstOrNull { it.covers(cell) } }
                     val onWidget = over != null && widgetIdOf(over.id) != null
 
                     if (!onWidget) {
@@ -166,39 +180,30 @@ fun DesktopAppGrid(
         // Widgets share the icons' cell space, so they are drawn from the same placements.
         placed.placements.forEach { placement ->
             val widgetId = widgetIdOf(placement.id) ?: return@forEach
-            val permission = resizePermissionFor(widgetId)
-            val isResizing = resizingWidget == widgetId
 
-            Box(
-                modifier = Modifier
-                    .offset {
-                        IntOffset(
-                            (placement.cell.column * cellWpx).roundToInt(),
-                            (placement.cell.row * cellHpx).roundToInt(),
-                        )
-                    }
-                    .size(
-                        width = cellW * placement.span.columns,
-                        height = cellH * placement.span.rows,
-                    )
-                    // Watched on the Initial pass and never consumed, so the widget keeps its own
-                    // taps — an AppWidgetHostView handling its clicks is the entire point of a
-                    // widget, and a resize gesture that swallowed them would break it.
-                    .longPressWithoutStealing(enabled = permission.isResizable) {
-                        resizingWidget = widgetId
-                    },
-            ) {
-                HostedWidget(view = widgetViewFor(widgetId), modifier = Modifier.fillMaxSize())
-
-                if (isResizing) {
-                    WidgetResizeFrame(
-                        permission = permission,
-                        onDragEdge = { edge, pixels -> onResizeDrag(widgetId, edge, pixels) },
-                        onDragStart = { onResizeStart(widgetId) },
-                        onDragEnd = onResizeEnd,
-                    )
-                }
-            }
+            DesktopWidget(
+                placement = placement,
+                widgetId = widgetId,
+                view = widgetViewFor(widgetId),
+                permission = resizePermissionFor(widgetId),
+                isResizing = resizingWidget == widgetId,
+                cellWidth = cellW,
+                cellHeight = cellH,
+                cellWidthPx = cellWpx,
+                cellHeightPx = cellHpx,
+                columnsAvailable = columns,
+                rowsAvailable = rows,
+                onOpenResize = { resizingWidget = widgetId },
+                onRemove = {
+                    // The frame belongs to a widget that is about to stop existing.
+                    if (resizingWidget == widgetId) resizingWidget = null
+                    onRemoveWidget(widgetId)
+                },
+                onMove = { cell -> onMoveWidget(widgetId, cell) },
+                onResizeDrag = { edge, pixels -> onResizeDrag(widgetId, edge, pixels) },
+                onResizeStart = { onResizeStart(widgetId) },
+                onResizeEnd = onResizeEnd,
+            )
         }
 
         entries.forEach { entry ->
@@ -292,42 +297,5 @@ private fun DesktopIcon(
                 onClick = { onTogglePin(); menuOpen = false },
             )
         }
-    }
-}
-
-/**
- * Fire [onLongPress] after a hold, without taking the gesture from whatever is underneath.
- *
- * Used on hosted widgets: an `AppWidgetHostView` handles its own clicks, and consuming the press to
- * detect a hold would break the widget's own buttons. Watching the **Initial** pass lets the
- * container see the events first while leaving them entirely unconsumed, so the widget still gets
- * everything it would have got.
- */
-private fun Modifier.longPressWithoutStealing(
-    enabled: Boolean,
-    onLongPress: () -> Unit,
-): Modifier = if (!enabled) this else this.pointerInput(enabled) {
-    val slop = viewConfiguration.touchSlop
-    val longPressMillis = viewConfiguration.longPressTimeoutMillis
-
-    awaitEachGesture {
-        val down = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
-            .changes.firstOrNull { it.pressed } ?: return@awaitEachGesture
-
-        var travelled = androidx.compose.ui.geometry.Offset.Zero
-        val held = withTimeoutOrNull(longPressMillis) {
-            while (true) {
-                val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
-                val change = event.changes.firstOrNull { it.id == down.id } ?: return@withTimeoutOrNull false
-                if (!change.pressed) return@withTimeoutOrNull false
-                travelled += change.positionChange()
-                // Moving means the user is doing something else — scrolling the widget, dragging
-                // inside it. Only a still finger means "resize me".
-                if (travelled.getDistance() > slop) return@withTimeoutOrNull false
-            }
-            @Suppress("UNREACHABLE_CODE") false
-        }
-
-        if (held == null) onLongPress()
     }
 }

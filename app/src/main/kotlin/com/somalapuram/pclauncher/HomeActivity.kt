@@ -103,6 +103,13 @@ class HomeActivity : ComponentActivity() {
                         widgets?.resizePermission(id, DesktopCellDp)
                             ?: com.somalapuram.pclauncher.core.data.layout.ResizePermission.None
                     },
+                    onMoveWidget = { id, cell -> shell?.moveWidget(id, cell) },
+                    onRemoveWidget = { id ->
+                        // Both halves, in this order: the placement first so the view leaves the
+                        // desktop, then the id so the framework drops the binding behind it.
+                        shell?.removeWidget(id)
+                        widgets?.removeWidget(id)
+                    },
                     onResizeStart = { id -> shell?.beginResize(id) },
                     onResizeEnd = { shell?.endResize() },
                     onResizeDrag = { id, edge, pixels, cellSize, columns, rows ->

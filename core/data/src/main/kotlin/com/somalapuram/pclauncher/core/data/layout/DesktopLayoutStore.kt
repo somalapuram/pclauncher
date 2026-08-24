@@ -33,6 +33,14 @@ interface DesktopLayoutStore {
 
     /** Resize a placement in place. A refused resize leaves the store untouched. */
     suspend fun resize(id: String, span: DesktopSpan)
+
+    /**
+     * Forget a placement entirely.
+     *
+     * Removing something that is not there is not an error — a widget whose id was already
+     * released should leave the store in the same state either way.
+     */
+    suspend fun remove(id: String)
 }
 
 /** Widget placements are ordinary placements under a reserved id prefix. */
@@ -94,6 +102,16 @@ class DataStoreDesktopLayoutStore(
         Unit
     }
 
+    override suspend fun remove(id: String) {
+        runCatching {
+            dataStore.edit { prefs ->
+                val current = DesktopLayoutCodec.decode(prefs[KEY])
+                if (current.placementFor(id) == null) return@edit
+                prefs[KEY] = DesktopLayoutCodec.encode(current.without(id))
+            }
+        }
+    }
+
     override suspend fun addWidget(widgetId: Int, rowsPerColumn: Int) {
         runCatching {
             dataStore.edit { prefs ->
@@ -137,5 +155,9 @@ class InMemoryDesktopLayoutStore(initial: DesktopLayout = DesktopLayout()) : Des
         val candidate = DesktopPlacement(id, cell, span)
         if (state.value.placements.any { it.id != id && it.overlaps(candidate) }) return
         state.value = DesktopLayout(state.value.placements.filterNot { it.id == id } + candidate)
+    }
+
+    override suspend fun remove(id: String) {
+        state.value = state.value.without(id)
     }
 }

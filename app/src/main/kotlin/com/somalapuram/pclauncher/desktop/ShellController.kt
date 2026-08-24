@@ -75,6 +75,27 @@ class ShellController(
         }
     }
 
+    /**
+     * Move a widget to a cell.
+     *
+     * The same store operation an icon's drop calls: dragging is a second route to placement, never
+     * a second implementation of it. The store keeps the widget's span and refuses an overlap, so a
+     * bad drop costs the move and nothing else (widget-drag.md requirement 6).
+     */
+    fun moveWidget(widgetId: Int, cell: DesktopCell) {
+        scope.launch { runCatching { layoutStore.place(widgetPlacementId(widgetId), cell) } }
+    }
+
+    /**
+     * Forget a widget's placement.
+     *
+     * Releasing the widget id belongs to whoever owns the host, not here — this class knows about
+     * layout and would need a framework dependency to do it (widget-removal.md requirement 5).
+     */
+    fun removeWidget(widgetId: Int) {
+        scope.launch { runCatching { layoutStore.remove(widgetPlacementId(widgetId)) } }
+    }
+
     /** Move an icon to a cell. A refused move leaves the store untouched and the icon springs back. */
     fun place(entry: AppEntry, cell: DesktopCell) {
         scope.launch { runCatching { layoutStore.place(pinIdOf(entry), cell) } }

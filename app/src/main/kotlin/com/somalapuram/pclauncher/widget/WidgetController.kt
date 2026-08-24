@@ -152,6 +152,15 @@ class WidgetController(
         views.remove(id)
     }
 
+    /**
+     * Remove a widget for good.
+     *
+     * The same operation as abandoning a half-bound id: the view, the cached policy and the
+     * framework binding all go. Dropping only the placement would leak the id — the host keeps the
+     * binding alive and the provider keeps being asked to update a widget nobody can see.
+     */
+    fun removeWidget(id: Int) = releaseId(id)
+
     /** Release an id unless the whole flow completed. */
     fun releaseIfIncomplete(id: Int, bound: Boolean, configured: Boolean, cancelled: Boolean) {
         if (shouldReleaseId(bound, configured, cancelled)) releaseId(id)

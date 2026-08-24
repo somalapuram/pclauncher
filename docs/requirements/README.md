@@ -73,6 +73,10 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
   desktop’s own context menu (wallpaper, add widget). *Status: Accepted · Implemented.*
 - [`desktop/widget-resize.md`](desktop/widget-resize.md) — long-press a widget to resize it by
   dragging, within the provider's permitted axes. *Status: Accepted · Implemented.*
+- [`desktop/widget-drag.md`](desktop/widget-drag.md) — drag a widget to arrange it on the grid,
+  snapping its corner and refusing a drop that would overlap. *Status: Accepted · Implemented.*
+- [`desktop/widget-removal.md`](desktop/widget-removal.md) — a context menu on a widget, carrying
+  Remove widget, and the id release that goes with it. *Status: Accepted · Implemented.*
 - [`desktop/widget-host.md`](desktop/widget-host.md) — `AppWidgetHost` inside Compose, binding and
   id lifecycle. *Status: Accepted · Implemented (removal pending).*
 
