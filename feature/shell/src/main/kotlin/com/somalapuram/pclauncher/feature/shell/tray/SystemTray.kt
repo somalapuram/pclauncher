@@ -15,6 +15,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -37,11 +40,15 @@ fun SystemTray(
     onAction: (TrayAction) -> Unit = {},
 ) {
     val colors = LocalPcColors.current
+    val density = LocalDensity.current
     var open by remember { mutableStateOf(false) }
 
     Box(modifier = modifier) {
         Row(
             modifier = Modifier
+                // Clipped above the click, not merely painted below it: indication is bounded by
+                // the node, so a rounded background alone leaves the press drawing as a rectangle.
+                .clip(RoundedCornerShape(PcCorners.Popover))
                 .clickable { open = !open }
                 .background(
                     if (open) colors.onSurface.copy(alpha = 0.10f)
@@ -67,8 +74,12 @@ fun SystemTray(
         if (open) {
             // Anchored above the bar and right-aligned to the tray, the way every desktop puts it.
             Popup(
-                alignment = Alignment.BottomEnd,
-                offset = androidx.compose.ui.unit.IntOffset(0, -TrayPopupGap),
+                // Aligned to the window at the bar's own margin, so the panel's edge and the bar's
+                // edge agree (tray-popover-placement.md).
+                popupPositionProvider = TrayPopoverPosition(
+                    edgeMarginPx = with(density) { PcSpacing.Large.roundToPx() },
+                    gapPx = with(density) { TrayPopoverGap.roundToPx() },
+                ),
                 onDismissRequest = { open = false },
                 properties = androidx.compose.ui.window.PopupProperties(
                     focusable = true,
@@ -91,8 +102,13 @@ fun SystemTray(
     }
 }
 
-/** Enough that the panel clears the bar rather than growing out of it. */
-private const val TrayPopupGap = 64
+/**
+ * From the anchor's top up to the panel's bottom.
+ *
+ * Covers the bar's upper half above the vertically-centred tray, plus the bar's own outer margin
+ * and a little air — so the panel clears the bar instead of touching it.
+ */
+private val TrayPopoverGap = 32.dp
 
 /** Battery as text. Charging is a prefix rather than a colour, so it survives being read in mono. */
 fun BatteryState.label(): String = when (this) {
