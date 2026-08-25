@@ -41,6 +41,24 @@ data class IconStyle(
     val shadow: Color,
     val shadowRadiusFraction: Float,
     val shadowOffsetFraction: Float,
+    /**
+     * A highlight drawn **over** the glyph, clipped to the tile.
+     *
+     * The gloss and specular below are painted before the artwork, so on a well-filled adaptive
+     * icon they survive only in the margin — which is why the tiles measured flat despite having
+     * two highlight layers. Glass covers what is under it; this is the layer that makes the tile
+     * read as glass rather than as a gradient behind a picture. Alpha 0 disables it.
+     */
+    val glaze: Color,
+    val glazeStop: Float,
+    /**
+     * A soft darkening along the bottom **inside** the shape.
+     *
+     * The drop shadow sits beneath the tile and says where the tile is; this says the tile has a
+     * body. Without it a tile has a lit top edge and no underside, which reads as a sticker.
+     */
+    val innerShade: Color,
+    val innerShadeStop: Float,
     /** Inset of an adaptive icon's foreground inside the tile. */
     val adaptiveInset: Float,
     /**
@@ -76,6 +94,12 @@ data class IconStyle(
             specularStop = 0.17f,
             glowAlpha = 0.55f,
             glowRadiusFraction = 0.085f,
+            // Restrained: near-black glass shows a highlight readily, and matching clay's strength
+            // here would grey the tiles out and lose the depth the darkness is buying.
+            glaze = Color(0x66FFFFFF),
+            glazeStop = 0.62f,
+            innerShade = Color(0x8C000000),
+            innerShadeStop = 0.55f,
             shadow = Color(0x8C000000),
             shadowRadiusFraction = 0.07f,
             shadowOffsetFraction = 0.04f,
@@ -88,20 +112,31 @@ data class IconStyle(
         val SoftClay = IconStyle(
             id = "soft-clay",
             tileBase = Color(0xFFFDFDFF),
-            // Clay carries more of the app's colour than glass does — that is what makes the light
-            // set read as pastel rather than as a grid of identical white squares.
-            tileTint = 0.26f,
-            gloss = Color(0x73FFFFFF),
-            glossStop = 0.56f,
-            rim = Color(0x40FFFFFF),
-            rimWidthFraction = 0.014f,
-            // Clay is matte, so its specular is a hint rather than a band — pushing it as hard as
-            // glass would turn the light set plastic.
-            specular = Color(0x4DFFFFFF),
-            specularStop = 0.14f,
+            // Raised hard from 0.26: at that level every tile landed on near-white and the set read
+            // as identical squares — the exact failure the tint exists to prevent. The reference is
+            // pastel, and pastel needs the app's colour to actually survive into the tile.
+            tileTint = 0.52f,
+            gloss = Color(0xA6FFFFFF),
+            glossStop = 0.58f,
+            // The rim sits at the tile edge, outside the glyph's inset, so unlike the gloss it is
+            // never covered — which makes it the cheapest lit edge available on a light tile.
+            rim = Color(0xBFFFFFFF),
+            rimWidthFraction = 0.024f,
+            // Was a "hint" on the theory that a hard specular would turn the light set plastic.
+            // Against `ref-img/icons3.png` plastic is precisely what it is: glossy, saturated and
+            // dimensional. The hint measured as no shading at all.
+            specular = Color(0xBFFFFFFF),
+            specularStop = 0.20f,
             glowAlpha = 0.30f,
             glowRadiusFraction = 0.10f,
-            shadow = Color(0x2E000000),
+            // The stop is a fraction of the whole bitmap, and the tile is inset inside it to
+            // leave room for the shadow and glow — so a stop under ~0.5 dies before the diagonal
+            // reaches the tile at all. 0.46 measured as no sheen whatsoever.
+            glaze = Color(0xBFFFFFFF),
+            glazeStop = 0.72f,
+            innerShade = Color(0x4D324055),
+            innerShadeStop = 0.55f,
+            shadow = Color(0x3D000000),
             shadowRadiusFraction = 0.090f,
             shadowOffsetFraction = 0.050f,
             adaptiveInset = 0.15f,
@@ -113,7 +148,13 @@ data class IconStyle(
          * Bumped whenever the pipeline changes. Part of the cache key, so a change invalidates
          * every stored icon rather than leaving old and new tiles side by side on the desktop.
          */
-        const val TREATMENT_VERSION = 3
+        /**
+         * Bumped whenever the treatment's *output* changes.
+         *
+         * The composited bitmap is cached on disk under this, so a style change without a bump
+         * serves every existing install the old artwork for good.
+         */
+        const val TREATMENT_VERSION = 4
     }
 }
 

@@ -53,6 +53,11 @@ class IconCompositor(private val style: IconStyle) {
         drawSpecular(canvas, tilePath, sizePx)
         drawRim(canvas, tilePath, appColor, sizePx)
         drawGlyph(canvas, source, adaptive, sizePx, tilePath)
+        // After the glyph, deliberately. Glass covers what is under it — painted before, these two
+        // survive only in the margin around the artwork, which is why tiles with two highlight
+        // layers still measured flat (icon-gloss.md).
+        drawGlaze(canvas, tilePath, sizePx)
+        drawInnerShade(canvas, tilePath, sizePx)
 
         return output
     }
@@ -159,6 +164,56 @@ class IconCompositor(private val style: IconStyle) {
             shader = LinearGradient(
                 0f, 0f, 0f, stopY,
                 intArrayOf(specularColor.toArgb(), Color.Transparent.toArgb()),
+                floatArrayOf(0f, 1f),
+                Shader.TileMode.CLAMP,
+            )
+        }
+        canvas.save()
+        canvas.clipPath(path)
+        canvas.drawPaint(paint)
+        canvas.restore()
+    }
+
+    /**
+     * The highlight that sits *above* the artwork.
+     *
+     * Same shape as the gloss and drawn from the same top-left direction, so the tile reads as one
+     * lit surface rather than two competing gradients.
+     */
+    private fun drawGlaze(canvas: Canvas, path: android.graphics.Path, sizePx: Int) {
+        val glazeColor = style.glaze
+        val stop = sizePx * style.glazeStop
+        if (glazeColor.alpha <= 0f) return
+
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(
+                0f, 0f, stop * 0.85f, stop,
+                intArrayOf(glazeColor.toArgb(), Color.Transparent.toArgb()),
+                floatArrayOf(0f, 1f),
+                Shader.TileMode.CLAMP,
+            )
+        }
+        canvas.save()
+        canvas.clipPath(path)
+        canvas.drawPaint(paint)
+        canvas.restore()
+    }
+
+    /**
+     * The underside, inside the shape.
+     *
+     * Runs upward from the bottom edge, so the gradient's opaque end is where the tile turns away
+     * from the light. This is the difference between a lit edge and a body.
+     */
+    private fun drawInnerShade(canvas: Canvas, path: android.graphics.Path, sizePx: Int) {
+        val shadeColor = style.innerShade
+        val stop = sizePx * style.innerShadeStop
+        if (shadeColor.alpha <= 0f) return
+
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(
+                0f, sizePx.toFloat(), 0f, sizePx - stop,
+                intArrayOf(shadeColor.toArgb(), Color.Transparent.toArgb()),
                 floatArrayOf(0f, 1f),
                 Shader.TileMode.CLAMP,
             )

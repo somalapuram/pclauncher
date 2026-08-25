@@ -2,6 +2,7 @@ package com.somalapuram.pclauncher.feature.shell.bar
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import com.somalapuram.pclauncher.core.design.surfaceSheen
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -112,7 +113,14 @@ fun ShellBar(
                 val top = it.positionInRoot().y
                 onBoundsChanged(top, top + it.size.height)
             }
-            .background(colors.scrim.copy(alpha = alpha), RoundedCornerShape(PcCorners.Dock))
+            // A sheen rather than a flat fill: the bar frames glossy icons, and one linear
+            // gradient is the affordable way to give it a surface of its own.
+            .background(
+                brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                    surfaceSheen(alpha).map { colors.scrim.copy(alpha = it) },
+                ),
+                shape = RoundedCornerShape(PcCorners.Dock),
+            )
             .border(
                 width = if (isDropTarget) 2.dp else 1.dp,
                 color = if (isDropTarget) colors.accent else colors.hairline,

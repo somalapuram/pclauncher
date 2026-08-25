@@ -30,6 +30,27 @@ val DefaultBlurRadius: Dp = 24.dp
 const val BlurScrimAlpha: Float = 0.45f
 
 /**
+ * The vertical sheen on a shell surface.
+ *
+ * A bar of one flat colour has no dimension, which is conspicuous once the icons sitting on it are
+ * glossy (icon-gloss.md). One linear gradient is affordable where a blur is not (SRS §4.3): it is a
+ * single shader on a surface that already draws a background, with no extra layer and no per-frame
+ * cost beyond the fill that was happening anyway.
+ *
+ * Returned as stops rather than a Brush so `core:design` states the intent and the surface applies
+ * it — and so the values are testable without a composition.
+ */
+fun surfaceSheen(baseAlpha: Float, lift: Float = DefaultSheenLift): List<Float> =
+    listOf(
+        (baseAlpha - lift).coerceIn(0f, 1f),
+        baseAlpha.coerceIn(0f, 1f),
+        (baseAlpha + lift * 0.5f).coerceIn(0f, 1f),
+    )
+
+/** Kept small: the bar is furniture (SRS §6.1) and a strong gradient would compete with the icons. */
+const val DefaultSheenLift: Float = 0.10f
+
+/**
  * Decide a surface's treatment.
  *
  * Blur requires **both** a renderer that can afford it and the user asking for it. Either one
