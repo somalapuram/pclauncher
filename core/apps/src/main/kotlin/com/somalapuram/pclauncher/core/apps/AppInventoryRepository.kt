@@ -35,15 +35,28 @@ class AppInventoryRepository(
      *
      * Profiles are loaded one at a time and published as each lands, so a slow or locked profile
      * cannot hold up the ones that are ready.
+     *
+     * **Safe to call again.** This object is a `@Singleton` while the thing that starts it is an
+     * activity, and Android creates a second home activity readily — a configuration change, or
+     * the system relaunching the home app when the default home role moves. So a repeat call has
+     * to be correct rather than refused: refusing would leave an outgoing activity's `stop()` able
+     * to unsubscribe the incoming one's inventory for good (inventory-identity.md).
      */
     fun start(scope: CoroutineScope) {
         scope.launch {
+            // Before anything else: a subscription already held would otherwise stay registered
+            // with nothing left pointing at it, and every package change would be applied twice
+            // for the life of the process.
+            closeSubscription()
+
             val profiles = withContext(ioDispatcher) { source.profiles() }
 
             for (user in profiles) {
                 val entries = withContext(ioDispatcher) { source.entriesFor(user) }
                 _inventory.value = _inventory.value.let { current ->
-                    current.copy(entries = sortedByLabel(current.entries + entries, locale()))
+                    // Keyed, not concatenated — see `mergedByKey`. This is what makes a second
+                    // build replace the list rather than double it.
+                    current.copy(entries = sortedByLabel(mergedByKey(current.entries, entries), locale()))
                 }
             }
 
@@ -60,8 +73,10 @@ class AppInventoryRepository(
         _inventory.value = applyChange(_inventory.value, change, locale())
     }
 
-    fun stop() {
-        subscription?.close()
+    fun stop() = closeSubscription()
+
+    private fun closeSubscription() {
+        subscription?.let { runCatching { it.close() } }
         subscription = null
     }
 }

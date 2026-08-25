@@ -114,6 +114,25 @@ fun applyChange(
  * The key is ties: two entries can share a label (the same app in the personal and work profiles),
  * so profile and component break the tie and keep the order stable across rebuilds.
  */
+/**
+ * Fold [incoming] into [existing], keyed by `(ComponentName, UserHandle)`.
+ *
+ * Concatenating instead is what let a second build list every app twice: `AppEntry` is *keyed* by
+ * that pair, and identity that is never used to merge is a comment rather than a key. The incoming
+ * entry wins, so a relabelled, newly-suspended or newly-unavailable app is not shadowed by the
+ * stale copy it replaces.
+ *
+ * Entries [existing] holds and [incoming] does not are kept, so a rebuild never blinks the list
+ * empty while it fills in profile by profile.
+ */
+fun mergedByKey(existing: List<AppEntry>, incoming: List<AppEntry>): List<AppEntry> {
+    if (incoming.isEmpty()) return existing
+    val byKey = LinkedHashMap<AppKey, AppEntry>(existing.size + incoming.size)
+    existing.forEach { byKey[it.key] = it }
+    incoming.forEach { byKey[it.key] = it }
+    return byKey.values.toList()
+}
+
 fun sortedByLabel(entries: List<AppEntry>, locale: Locale = Locale.getDefault()): List<AppEntry> {
     val collator = Collator.getInstance(locale).apply { strength = Collator.SECONDARY }
     return entries.sortedWith(

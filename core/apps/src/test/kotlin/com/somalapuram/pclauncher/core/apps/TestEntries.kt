@@ -38,12 +38,21 @@ fun inventoryOf(vararg entries: AppEntry) =
 /** An [AppSource] with no framework behind it — what makes every test here device-free. */
 class FakeAppSource(
     private val byProfile: Map<UserHandle, List<AppEntry>>,
+    /** Lets a test hand back the same user twice, the way a misbehaving platform might. */
+    private val profileOrder: List<UserHandle>? = null,
 ) : AppSource {
     var observing = false
         private set
+
+    /** How many subscriptions have been opened and closed — a leak is the gap between them. */
+    var subscriptionsOpened = 0
+        private set
+    var subscriptionsClosed = 0
+        private set
+
     private var emit: ((AppChange) -> Unit)? = null
 
-    override fun profiles(): List<UserHandle> = byProfile.keys.toList()
+    override fun profiles(): List<UserHandle> = profileOrder ?: byProfile.keys.toList()
 
     override fun entriesFor(user: UserHandle): List<AppEntry> = byProfile[user].orEmpty()
 
@@ -52,8 +61,9 @@ class FakeAppSource(
 
     override fun observeChanges(onChange: (AppChange) -> Unit): AutoCloseable {
         observing = true
+        subscriptionsOpened++
         emit = onChange
-        return AutoCloseable { observing = false; emit = null }
+        return AutoCloseable { observing = false; subscriptionsClosed++; emit = null }
     }
 
     fun push(change: AppChange) = emit?.invoke(change)

@@ -30,6 +30,8 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
   tokens, HOME activity owning `ROLE_HOME`, green test harness. *Status: Accepted · Implemented.*
 
 ### launch
+- [`launch/inventory-identity.md`](launch/inventory-identity.md) — one entry per key, and a build
+  that replaces rather than accumulates. *Status: Accepted · Implemented.*
 - [`launch/app-inventory.md`](launch/app-inventory.md) — `LauncherApps` inventory keyed by
   (component, user), icon cache, work/private profiles, incremental deltas, usage/recency.
   *Status: Accepted · Implemented.*
