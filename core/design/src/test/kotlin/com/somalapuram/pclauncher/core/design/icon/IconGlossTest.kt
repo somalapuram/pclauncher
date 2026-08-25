@@ -64,7 +64,7 @@ class IconGlossTest {
         // A flat fill scores 0. The device measured 4/255 before this was fixed.
         assertTrue(
             "light tiles are flat: the sheen is not reaching the surface",
-            shadingSpread(IconStyle.SoftClay) > 20.0,
+            shadingSpread(IconStyle.SoftClay) > 35.0,
         )
     }
 
@@ -72,7 +72,7 @@ class IconGlossTest {
     fun `the dark tile is lit at the top and shaded at the bottom`() {
         assertTrue(
             "dark tiles are flat",
-            shadingSpread(IconStyle.DarkGlass) > 12.0,
+            shadingSpread(IconStyle.DarkGlass) > 20.0,
         )
     }
 
@@ -82,7 +82,7 @@ class IconGlossTest {
         val covered = composite(IconStyle.SoftClay, glyph = AndroidColor.BLACK)
         val spread = bandLuminance(covered, 0.24f, 0.34f) - bandLuminance(covered, 0.66f, 0.76f)
 
-        assertTrue("the glaze is not above the glyph: an opaque icon hides it", spread > 20.0)
+        assertTrue("the glaze is not above the glyph: an opaque icon hides it", spread > 35.0)
     }
 
     @Test

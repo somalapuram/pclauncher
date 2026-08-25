@@ -66,13 +66,14 @@ Measured in `IconGlossTest` over the composited bitmap; device checks on the `Pi
 (Android 17, 2560×1600 @ 320 dpi) in both themes.
 
 - [x] A composited tile's top half is measurably brighter than its bottom half in both styles —
-      asserted at >20 for clay and >12 for glass, against a flat fill's 0.
-- [x] That margin survives an opaque, tile-filling glyph.
+      asserted at >35 for clay and >20 for glass, against a flat fill's 0.
+- [x] That margin survives an opaque, tile-filling glyph (>35).
 - [x] Removing the glaze makes the assertion fail (spread drops under 8).
 - [x] The light style's tiles take visible colour from the app — two dominant colours produce
       measurably different tiles.
 - [x] The dark style remains dark: mid-tile luminance stays under 150.
-- [x] `IconStyle.TREATMENT_VERSION` raised 3 → 4, so every cached bitmap is rebaked.
+- [x] `IconStyle.TREATMENT_VERSION` raised 3 → 5, so every cached bitmap is rebaked. (4 was the
+      first calibration; 5 is the stronger one asked for after seeing it on device.)
 - [x] The bar draws a vertical sheen (`surfaceSheen`, 3 tests).
 - [x] On device the tiles read as glossy in both themes: the sheen now crosses the artwork, the
       underside is visible, and light tiles are pastel rather than white.
@@ -102,5 +103,9 @@ problem.
 - **Tiles were also invisible against the bar.** At the old tint every tile landed on near-white and
   the taskbar is light grey, so the tile edge vanished and only the artwork read. Raising the tint
   fixed the silhouette as much as the shading did.
+- **Calibrated twice, on device.** The first pass cleared the thresholds and still read as
+  understated at 320 dpi, so glaze, rim, specular and the underside were all pushed again and the
+  test thresholds raised with them — a threshold left at the old value would have let the stronger
+  look silently regress.
 - **Not in this slice:** per-app style overrides, a themed/monochrome icon path, animated
   specular that tracks the pointer, or restyling the Start menu and popovers to match.

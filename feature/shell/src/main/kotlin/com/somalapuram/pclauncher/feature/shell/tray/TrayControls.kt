@@ -60,6 +60,25 @@ fun wifiBars(state: ConnectionState): Int = when (state) {
     ConnectionState.Off, ConnectionState.Unknown -> 0
 }
 
+/**
+ * Whether a tile draws filled.
+ *
+ * A filled tile is a claim that the thing is *on*, so only a real on-state earns it. Unknown reads
+ * as off — claiming a radio is connected because we could not tell is the one answer that is worse
+ * than admitting ignorance. Battery is never filled at any level: it opens a screen and reports a
+ * number, and a filled battery tile would advertise a switch that does not exist
+ * (quick-settings-surface.md requirements 3-5).
+ */
+fun tileIsOn(indicator: TrayIndicator, state: TrayState): Boolean = when (indicator) {
+    TrayIndicator.Wifi -> state.wifi == ConnectionState.On
+    TrayIndicator.Bluetooth -> state.bluetooth == ConnectionState.On
+    TrayIndicator.Battery -> false
+    TrayIndicator.Volume -> state.volume.isKnown && state.volume.level > 0
+}
+
+/** The level as a whole percentage, for the label beside the slider. */
+fun volumePercent(state: VolumeState): Int = Math.round(fractionOf(state) * 100f)
+
 /** Which indicator was clicked. All of them open the same popover; the type is for the rows. */
 enum class TrayIndicator { Bluetooth, Wifi, Battery, Volume }
 

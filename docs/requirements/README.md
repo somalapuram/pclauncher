@@ -69,6 +69,8 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 - [`shell/pinning.md`](shell/pinning.md) — the `pins` store and pin/unpin from every surface that
   lists an app. *Status: Accepted · Implemented.*
 - `shell/command-palette.md` — Spotlight palette + `PaletteProvider`. *Status: Planned.*
+- [`shell/quick-settings-surface.md`](shell/quick-settings-surface.md) — the popover as a glossy
+  surface with state-carrying tiles. *Status: Accepted · Implemented.*
 - [`shell/tray-controls.md`](shell/tray-controls.md) — drawn glyphs for the tray, a volume
   control, and one quick-settings popover behind them. *Status: Accepted · Implemented.*
 - [`shell/system-tray.md`](shell/system-tray.md) — clock, battery, Wi-Fi, Bluetooth in the bar's

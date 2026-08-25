@@ -88,18 +88,18 @@ data class IconStyle(
             tileTint = 0.13f,
             gloss = Color(0x8FFFFFFF),
             glossStop = 0.44f,
-            rim = Color(0xA6FFFFFF),
-            rimWidthFraction = 0.020f,
+            rim = Color(0xE6FFFFFF),
+            rimWidthFraction = 0.026f,
             specular = Color(0x99FFFFFF),
             specularStop = 0.17f,
             glowAlpha = 0.55f,
             glowRadiusFraction = 0.085f,
             // Restrained: near-black glass shows a highlight readily, and matching clay's strength
             // here would grey the tiles out and lose the depth the darkness is buying.
-            glaze = Color(0x66FFFFFF),
-            glazeStop = 0.62f,
-            innerShade = Color(0x8C000000),
-            innerShadeStop = 0.55f,
+            glaze = Color(0x8CFFFFFF),
+            glazeStop = 0.72f,
+            innerShade = Color(0xA6000000),
+            innerShadeStop = 0.58f,
             shadow = Color(0x8C000000),
             shadowRadiusFraction = 0.07f,
             shadowOffsetFraction = 0.04f,
@@ -120,22 +120,22 @@ data class IconStyle(
             glossStop = 0.58f,
             // The rim sits at the tile edge, outside the glyph's inset, so unlike the gloss it is
             // never covered — which makes it the cheapest lit edge available on a light tile.
-            rim = Color(0xBFFFFFFF),
-            rimWidthFraction = 0.024f,
+            rim = Color(0xF2FFFFFF),
+            rimWidthFraction = 0.030f,
             // Was a "hint" on the theory that a hard specular would turn the light set plastic.
             // Against `ref-img/icons3.png` plastic is precisely what it is: glossy, saturated and
             // dimensional. The hint measured as no shading at all.
-            specular = Color(0xBFFFFFFF),
-            specularStop = 0.20f,
+            specular = Color(0xD9FFFFFF),
+            specularStop = 0.24f,
             glowAlpha = 0.30f,
             glowRadiusFraction = 0.10f,
             // The stop is a fraction of the whole bitmap, and the tile is inset inside it to
             // leave room for the shadow and glow — so a stop under ~0.5 dies before the diagonal
             // reaches the tile at all. 0.46 measured as no sheen whatsoever.
-            glaze = Color(0xBFFFFFFF),
-            glazeStop = 0.72f,
-            innerShade = Color(0x4D324055),
-            innerShadeStop = 0.55f,
+            glaze = Color(0xD9FFFFFF),
+            glazeStop = 0.80f,
+            innerShade = Color(0x66324055),
+            innerShadeStop = 0.58f,
             shadow = Color(0x3D000000),
             shadowRadiusFraction = 0.090f,
             shadowOffsetFraction = 0.050f,
@@ -154,7 +154,7 @@ data class IconStyle(
          * The composited bitmap is cached on disk under this, so a style change without a bump
          * serves every existing install the old artwork for good.
          */
-        const val TREATMENT_VERSION = 4
+        const val TREATMENT_VERSION = 5
     }
 }
 

@@ -199,4 +199,56 @@ class TrayControlsTest {
         val described = TrayState(volume = VolumeState(max = 0)).describe()
         assertFalse(described.contains("volume"))
     }
+
+    // --- tile fill ----------------------------------------------------------------------------
+
+    private fun state(
+        wifi: ConnectionState = ConnectionState.Unknown,
+        bluetooth: ConnectionState = ConnectionState.Unknown,
+        battery: BatteryState = BatteryState.Unknown,
+        volume: VolumeState = VolumeState(),
+    ) = TrayState(battery = battery, wifi = wifi, bluetooth = bluetooth, volume = volume)
+
+    @Test
+    fun `a connected radio fills its tile`() {
+        assertTrue(tileIsOn(TrayIndicator.Wifi, state(wifi = ConnectionState.On)))
+        assertTrue(tileIsOn(TrayIndicator.Bluetooth, state(bluetooth = ConnectionState.On)))
+    }
+
+    @Test
+    fun `a disconnected radio does not`() {
+        assertFalse(tileIsOn(TrayIndicator.Wifi, state(wifi = ConnectionState.Off)))
+        assertFalse(tileIsOn(TrayIndicator.Bluetooth, state(bluetooth = ConnectionState.Off)))
+    }
+
+    @Test
+    fun `a state we could not read never claims to be on`() {
+        assertFalse(tileIsOn(TrayIndicator.Wifi, state(wifi = ConnectionState.Unknown)))
+        assertFalse(tileIsOn(TrayIndicator.Bluetooth, state(bluetooth = ConnectionState.Unknown)))
+    }
+
+    @Test
+    fun `battery is never filled, however full or charging it is`() {
+        // A filled tile advertises a switch, and battery has none.
+        listOf(
+            BatteryState.Unknown,
+            BatteryState.Known(0, charging = false),
+            BatteryState.Known(100, charging = true),
+        ).forEach { assertFalse(tileIsOn(TrayIndicator.Battery, state(battery = it))) }
+    }
+
+    @Test
+    fun `volume counts as on only when it is audible`() {
+        assertTrue(tileIsOn(TrayIndicator.Volume, state(volume = VolumeState(1, 15))))
+        assertFalse(tileIsOn(TrayIndicator.Volume, state(volume = VolumeState(0, 15))))
+        assertFalse(tileIsOn(TrayIndicator.Volume, state(volume = VolumeState(9, 0))))
+    }
+
+    @Test
+    fun `the percentage rounds to whole numbers across the range`() {
+        assertEquals(0, volumePercent(VolumeState(0, 15)))
+        assertEquals(100, volumePercent(VolumeState(15, 15)))
+        assertEquals(53, volumePercent(VolumeState(8, 15)))
+        assertEquals(0, volumePercent(VolumeState(8, 0)))
+    }
 }
