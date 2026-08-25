@@ -75,6 +75,9 @@ Verified on the `Pixel_Tablet` AVD (Android 17, 2560×1600 @ 320 dpi), light the
       the seams they hold.
 - [x] The fill decision is unit-tested across on / off / unknown / battery / volume.
 - [x] `./gradlew test lint assembleDebug` green.
+- [x] **Fixed after review:** the press indication drew as a square. Compose clips indication to the
+      node's bounds, and the tile's rounded shape lived only in its background — so the ripple on a
+      rounded tile was a rectangle. The tile is now clipped to its shape before the click modifier.
 
 ## Notes
 
