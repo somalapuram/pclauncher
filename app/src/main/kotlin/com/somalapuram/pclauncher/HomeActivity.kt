@@ -10,6 +10,8 @@ import com.somalapuram.pclauncher.desktop.AppLauncher
 import com.somalapuram.pclauncher.desktop.ShellController
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.isSystemInDarkTheme
+import com.somalapuram.pclauncher.core.design.chromeIsDark
+import com.somalapuram.pclauncher.wallpaper.rememberWallpaperTone
 import androidx.compose.runtime.remember
 import com.somalapuram.pclauncher.core.apps.AppEntry
 import com.somalapuram.pclauncher.core.design.PcTheme
@@ -81,7 +83,15 @@ class HomeActivity : ComponentActivity() {
         val trayActions = com.somalapuram.pclauncher.feature.shell.tray.SystemTrayActions(this)
 
         setContent {
-            val dark = isSystemInDarkTheme()
+            // The wallpaper decides, not the system theme: the shell sits directly on the
+            // wallpaper, so what it needs to know is what is behind it. A light theme over a dark
+            // wallpaper is an ordinary configuration and is exactly where the old answer looked
+            // worst (wallpaper-chrome.md). Falls through to the system setting when the wallpaper
+            // says nothing.
+            val dark = chromeIsDark(
+                tone = rememberWallpaperTone(),
+                systemDark = isSystemInDarkTheme(),
+            )
             val tray by remember { traySource.trayState() }
                 .collectAsState(initial = TrayState())
             // Rebuilt when the theme flips, so the dock reloads icons baked for the new palette

@@ -44,6 +44,10 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 - `windows/mission-control.md` — window overview. *Status: Planned.*
 
 ### design
+- [`design/visual-pass.md`](design/visual-pass.md) — labels without boxes, panels with depth, and a
+  Start menu that breathes. *Status: Accepted · In progress.*
+- [`design/wallpaper-chrome.md`](design/wallpaper-chrome.md) — chrome takes its light/dark polarity
+  from the wallpaper, not the system theme. *Status: Accepted · Implemented.*
 - [`design/dynamic-color.md`](design/dynamic-color.md) — adopt Android's Material You colours
   instead of a hardcoded palette, with a manual override. *Status: Accepted · Implemented.*
 - [`design/hover-feedback.md`](design/hover-feedback.md) — desktop icons, widgets and Start menu
