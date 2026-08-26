@@ -3,6 +3,7 @@ package com.somalapuram.pclauncher.widget
 import android.app.Activity
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
 import android.content.Intent
@@ -144,6 +145,7 @@ class WidgetController(
         val info = providerFor(id) ?: return null
         val view = runCatching { host.createView(context, id, info) }.getOrNull() ?: return null
         view.setAppWidget(id, info)
+        fillItsCell(view)
         views[id] = view
         return view
     }
@@ -180,3 +182,18 @@ class WidgetController(
 fun Activity.widgetIdFrom(data: Intent?): Int =
     data?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, WidgetController.INVALID_ID)
         ?: WidgetController.INVALID_ID
+
+/**
+ * Take the host's default padding off a widget view.
+ *
+ * `AppWidgetHostView` insets what it hosts by `getDefaultPaddingForWidget` — spacing meant for a
+ * home screen that does none of its own, so widgets built for older platforms do not touch. Ours is
+ * a grid: the cells *are* the spacing, so the host's padding is applied on top of a layout that
+ * already accounts for it and the widget ends up centred inside its own cells rather than filling
+ * them (widget-alignment.md).
+ *
+ * The widget's own internal padding is untouched — that belongs to its author.
+ */
+fun fillItsCell(view: AppWidgetHostView) {
+    runCatching { view.setPadding(0, 0, 0, 0) }
+}
