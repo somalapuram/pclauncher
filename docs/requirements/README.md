@@ -99,6 +99,8 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
   snapping its corner and refusing a drop that would overlap. *Status: Accepted · Implemented.*
 - [`desktop/widget-removal.md`](desktop/widget-removal.md) — a context menu on a widget, carrying
   Remove widget, and the id release that goes with it. *Status: Accepted · Implemented.*
+- [`desktop/widget-sizing.md`](desktop/widget-sizing.md) — a widget is told the size it is drawn
+  at, not only when resized. *Status: Accepted · Implemented.*
 - [`desktop/widget-chrome.md`](desktop/widget-chrome.md) — a hosted widget draws itself, without a
   box of ours around it. *Status: Accepted · Implemented.*
 - [`desktop/widget-host.md`](desktop/widget-host.md) — `AppWidgetHost` inside Compose, binding and

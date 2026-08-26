@@ -105,6 +105,8 @@ fun DesktopAppGrid(
     /** Drop a widget on a new cell. Refused by the store when it would overlap. */
     onMoveWidget: (widgetId: Int, cell: DesktopCell) -> Unit = { _, _ -> },
     onRemoveWidget: (widgetId: Int) -> Unit = {},
+    /** Report the dp a widget occupies, so its provider can lay out for it. */
+    onReportWidgetSize: (widgetId: Int, widthDp: Int, heightDp: Int) -> Unit = { _, _, _ -> },
 ) {
     val density = LocalDensity.current
     var desktopMenuOpen by remember { mutableStateOf(false) }
@@ -210,6 +212,7 @@ fun DesktopAppGrid(
                 onResizeDrag = { edge, pixels -> onResizeDrag(widgetId, edge, pixels) },
                 onResizeStart = { onResizeStart(widgetId) },
                 onResizeEnd = onResizeEnd,
+                onReportSize = { w, h -> onReportWidgetSize(widgetId, w, h) },
             )
         }
 

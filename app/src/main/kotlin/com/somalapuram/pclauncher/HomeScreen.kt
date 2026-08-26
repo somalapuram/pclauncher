@@ -104,6 +104,7 @@ fun HomeScreen(
     onResizeEnd: () -> Unit = {},
     onMoveWidget: (Int, com.somalapuram.pclauncher.core.data.layout.DesktopCell) -> Unit = { _, _ -> },
     onRemoveWidget: (Int) -> Unit = {},
+    onReportWidgetSize: (Int, Int, Int) -> Unit = { _, _, _ -> },
     isDefaultHome: Boolean,
     onSetDefaultHome: () -> Unit,
     onRetry: () -> Unit,
@@ -209,6 +210,7 @@ fun HomeScreen(
                     onResizeEnd = onResizeEnd,
                     onMoveWidget = onMoveWidget,
                     onRemoveWidget = onRemoveWidget,
+                    onReportWidgetSize = onReportWidgetSize,
                     layout = effectiveLayout,
                     onGridMetrics = { w, h, rows, origin, widthPx ->
                         cellW = w; cellH = h; gridRows = rows
@@ -353,6 +355,7 @@ private fun Desktop(
     onResizeEnd: () -> Unit,
     onMoveWidget: (Int, com.somalapuram.pclauncher.core.data.layout.DesktopCell) -> Unit,
     onRemoveWidget: (Int) -> Unit,
+    onReportWidgetSize: (Int, Int, Int) -> Unit,
     layout: DesktopLayout,
     onGridMetrics: (Float, Float, Int, androidx.compose.ui.geometry.Offset, Float) -> Unit,
 ) {
@@ -377,6 +380,7 @@ private fun Desktop(
             onResizeEnd = onResizeEnd,
             onMoveWidget = onMoveWidget,
             onRemoveWidget = onRemoveWidget,
+            onReportWidgetSize = onReportWidgetSize,
         )
         if (!isDefaultHome) {
             SetHomePrompt(onSetDefaultHome)

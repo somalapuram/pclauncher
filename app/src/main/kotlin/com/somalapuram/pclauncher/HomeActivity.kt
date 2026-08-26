@@ -127,15 +127,15 @@ class HomeActivity : ComponentActivity() {
                             permission = permission,
                             columnsAvailable = columns,
                             rowsAvailable = rows,
-                        ) { widthCells, heightCells ->
-                            // The provider has to be told, or it keeps rendering for the old size
-                            // and the resize is just a stretched picture of the old widget.
-                            widgets?.applySize(
-                                id,
-                                widthCells * DesktopCellDp,
-                                heightCells * DesktopCellHeightDp,
-                            )
+                        ) { _, _ ->
+                            // Nothing to do here. The size is reported from the placement itself
+                            // (`onReportWidgetSize`), which covers this resize *and* the two cases
+                            // this call site could never see: a widget merely placed, and one
+                            // re-created after a restart (widget-sizing.md).
                         }
+                    },
+                    onReportWidgetSize = { id, widthDp, heightDp ->
+                        widgets?.applySize(id, widthDp, heightDp)
                     },
                     outcome = outcome,
                     isDefaultHome = HomeRole.isDefault(this),
