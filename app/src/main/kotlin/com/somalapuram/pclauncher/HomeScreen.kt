@@ -105,6 +105,10 @@ fun HomeScreen(
     onMoveWidget: (Int, com.somalapuram.pclauncher.core.data.layout.DesktopCell) -> Unit = { _, _ -> },
     onRemoveWidget: (Int) -> Unit = {},
     onReportWidgetSize: (Int, Int, Int) -> Unit = { _, _, _ -> },
+    deviceName: String = "",
+    powerPrivileges: com.somalapuram.pclauncher.feature.shell.start.PowerPrivileges =
+        com.somalapuram.pclauncher.feature.shell.start.PowerPrivileges(),
+    onPowerAction: (com.somalapuram.pclauncher.feature.shell.start.PowerAction) -> Unit = {},
     isDefaultHome: Boolean,
     onSetDefaultHome: () -> Unit,
     onRetry: () -> Unit,
@@ -315,6 +319,9 @@ fun HomeScreen(
                 onTogglePin = onTogglePin,
                 onDismiss = { startOpen = false },
                 iconFor = iconFor,
+                deviceName = deviceName,
+                powerPrivileges = powerPrivileges,
+                onPowerAction = { startOpen = false; onPowerAction(it) },
             )
         }
     }

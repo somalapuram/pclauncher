@@ -137,6 +137,11 @@ class HomeActivity : ComponentActivity() {
                     onReportWidgetSize = { id, widthDp, heightDp ->
                         widgets?.applySize(id, widthDp, heightDp)
                     },
+                    deviceName = android.os.Build.MODEL ?: "",
+                    powerPrivileges = com.somalapuram.pclauncher.power.powerPrivilegesOf(this),
+                    onPowerAction = { action ->
+                        com.somalapuram.pclauncher.power.performPowerAction(this, action)
+                    },
                     outcome = outcome,
                     isDefaultHome = HomeRole.isDefault(this),
                     onSetDefaultHome = { startActivity(HomeRole.requestIntent(this)) },

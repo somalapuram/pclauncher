@@ -69,6 +69,10 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 - [`shell/dock-taskbar.md`](shell/dock-taskbar.md) — one bar: Start button, magnifying dock,
   taskbar window chips, Show Desktop. Rendered in the HOME activity first; the overlay service
   hosts the same composables later. *Status: Accepted · Partially implemented.*
+- [`shell/start-selection.md`](shell/start-selection.md) — no keyboard caret until the keyboard is
+  used. *Status: Accepted · Implemented.*
+- [`shell/start-power.md`](shell/start-power.md) — the Start menu footer, with device power gated
+  on privilege the AOSP branch grants. *Status: Accepted · Implemented.*
 - [`shell/start-menu.md`](shell/start-menu.md) — all apps + search, keyboard-first, right-click to
   pin. *Status: Accepted · Partially implemented (outside-click dismiss done; App info pending).*
 - [`shell/grid-layouts.md`](shell/grid-layouts.md) — Start as a fixed-column grid; the desktop
