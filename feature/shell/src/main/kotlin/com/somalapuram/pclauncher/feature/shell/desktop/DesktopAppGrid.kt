@@ -23,7 +23,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -47,6 +52,8 @@ import com.somalapuram.pclauncher.feature.shell.widget.HostedWidget
 import com.somalapuram.pclauncher.feature.shell.widget.WidgetResizeFrame
 import com.somalapuram.pclauncher.core.design.LocalPcColors
 import com.somalapuram.pclauncher.core.design.PcCorners
+import com.somalapuram.pclauncher.core.design.PcHover
+import com.somalapuram.pclauncher.core.design.PcMotion
 import com.somalapuram.pclauncher.core.design.PcSize
 import com.somalapuram.pclauncher.core.design.PcSpacing
 import com.somalapuram.pclauncher.feature.shell.bar.bitmapPainterFor
@@ -246,15 +253,27 @@ private fun DesktopIcon(
     var menuOpen by remember { mutableStateOf(false) }
     var originInRoot by remember { mutableStateOf(Offset.Zero) }
 
+    // Hover only; the gesture modifier below owns presses and drags, and taking the press here too
+    // would mean two things watching one pointer.
+    val interactions = remember { MutableInteractionSource() }
+    val hovered by interactions.collectIsHoveredAsState()
+
+    val scale by animateFloatAsState(
+        targetValue = PcHover.scaleFor(hovered),
+        animationSpec = PcMotion.DockMagnify,
+        label = "desktop-icon-scale",
+    )
+    val wash by animateFloatAsState(
+        targetValue = if (menuOpen) PcHover.PressedWash else PcHover.washFor(hovered),
+        animationSpec = PcMotion.DockMagnify,
+        label = "desktop-icon-wash",
+    )
+
     Box(modifier = modifier.onGloballyPositioned { originInRoot = it.positionInRoot() }) {
         Column(
             modifier = Modifier
                 .width(PcSize.DesktopGridCell)
-                .background(
-                    if (menuOpen) colors.onSurface.copy(alpha = 0.10f)
-                    else androidx.compose.ui.graphics.Color.Transparent,
-                    RoundedCornerShape(PcCorners.Popover),
-                )
+                .hoverable(interactions)
                 .appItemGestures(
                     key = entry.key,
                     enabled = entry.isLaunchable,
@@ -265,6 +284,16 @@ private fun DesktopIcon(
                     onDragStart = { local -> onDragStart(local) },
                     onDrag = onDrag,
                     onDragEnd = onDragEnd,
+                )
+                // *After* the gesture, deliberately: a transform applies to everything inside it,
+                // so scaling above the gesture node would scale the drag's own coordinates — by 8%
+                // exactly while hovering, which is when a mouse drag begins. The hit area stays
+                // put and only the picture grows.
+                .graphicsLayer { scaleX = scale; scaleY = scale }
+                // Icon and label together, so the pair reads as one target rather than two.
+                .background(
+                    colors.onSurface.copy(alpha = wash),
+                    RoundedCornerShape(PcCorners.Popover),
                 )
                 .padding(vertical = PcSpacing.Small),
             horizontalAlignment = Alignment.CenterHorizontally,
