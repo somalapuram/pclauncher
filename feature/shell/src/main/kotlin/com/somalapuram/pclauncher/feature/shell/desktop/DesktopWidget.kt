@@ -15,6 +15,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,6 +35,7 @@ import com.somalapuram.pclauncher.core.data.layout.DesktopPlacement
 import com.somalapuram.pclauncher.core.data.layout.ResizeEdge
 import com.somalapuram.pclauncher.core.data.layout.ResizePermission
 import com.somalapuram.pclauncher.core.data.layout.cellAfterDrag
+import com.somalapuram.pclauncher.core.data.layout.widgetSizeDp
 import com.somalapuram.pclauncher.core.design.LocalPcColors
 import com.somalapuram.pclauncher.core.design.PcCorners
 import com.somalapuram.pclauncher.core.design.PcHover
@@ -69,6 +71,15 @@ fun DesktopWidget(
     onResizeStart: () -> Unit,
     onResizeEnd: () -> Unit,
     modifier: Modifier = Modifier,
+    /**
+     * Tell the provider how much room it has, in dp.
+     *
+     * Driven by the placement rather than by a resize event: a widget that is merely *placed* — or
+     * re-created after a restart, which is every widget on every boot — is drawn at a size nobody
+     * ever told it, and lays out for its default inside a box that is not that size
+     * (widget-sizing.md).
+     */
+    onReportSize: (widthDp: Int, heightDp: Int) -> Unit = { _, _ -> },
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     // How far this widget has been dragged from its cell. Reset on drop, so a refused move simply
@@ -86,6 +97,13 @@ fun DesktopWidget(
         label = "widget-hover-outline",
     )
     val colors = LocalPcColors.current
+
+    val size = widgetSizeDp(
+        span = placement.span,
+        cellWidthDp = cellWidth.value.toInt(),
+        cellHeightDp = cellHeight.value.toInt(),
+    )
+    LaunchedEffect(widgetId, size) { onReportSize(size.width, size.height) }
 
     Box(
         modifier = modifier

@@ -44,6 +44,10 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 - `windows/mission-control.md` — window overview. *Status: Planned.*
 
 ### design
+- [`design/visual-pass.md`](design/visual-pass.md) — labels without boxes, panels with depth, and a
+  Start menu that breathes. *Status: Accepted · Implemented.*
+- [`design/wallpaper-chrome.md`](design/wallpaper-chrome.md) — chrome takes its light/dark polarity
+  from the wallpaper, not the system theme. *Status: Accepted · Implemented.*
 - [`design/dynamic-color.md`](design/dynamic-color.md) — adopt Android's Material You colours
   instead of a hardcoded palette, with a manual override. *Status: Accepted · Implemented.*
 - [`design/hover-feedback.md`](design/hover-feedback.md) — desktop icons, widgets and Start menu
@@ -69,6 +73,10 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 - [`shell/dock-taskbar.md`](shell/dock-taskbar.md) — one bar: Start button, magnifying dock,
   taskbar window chips, Show Desktop. Rendered in the HOME activity first; the overlay service
   hosts the same composables later. *Status: Accepted · Partially implemented.*
+- [`shell/start-selection.md`](shell/start-selection.md) — no keyboard caret until the keyboard is
+  used. *Status: Accepted · Implemented.*
+- [`shell/start-power.md`](shell/start-power.md) — the Start menu footer, with device power gated
+  on privilege the AOSP branch grants. *Status: Accepted · Implemented.*
 - [`shell/start-menu.md`](shell/start-menu.md) — all apps + search, keyboard-first, right-click to
   pin. *Status: Accepted · Partially implemented (outside-click dismiss done; App info pending).*
 - [`shell/grid-layouts.md`](shell/grid-layouts.md) — Start as a fixed-column grid; the desktop
@@ -99,6 +107,10 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
   snapping its corner and refusing a drop that would overlap. *Status: Accepted · Implemented.*
 - [`desktop/widget-removal.md`](desktop/widget-removal.md) — a context menu on a widget, carrying
   Remove widget, and the id release that goes with it. *Status: Accepted · Implemented.*
+- [`desktop/widget-alignment.md`](desktop/widget-alignment.md) — a widget's edges land on the grid
+  rather than inside it. *Status: Accepted · Implemented.*
+- [`desktop/widget-sizing.md`](desktop/widget-sizing.md) — a widget is told the size it is drawn
+  at, not only when resized. *Status: Accepted · Implemented.*
 - [`desktop/widget-chrome.md`](desktop/widget-chrome.md) — a hosted widget draws itself, without a
   box of ours around it. *Status: Accepted · Implemented.*
 - [`desktop/widget-host.md`](desktop/widget-host.md) — `AppWidgetHost` inside Compose, binding and

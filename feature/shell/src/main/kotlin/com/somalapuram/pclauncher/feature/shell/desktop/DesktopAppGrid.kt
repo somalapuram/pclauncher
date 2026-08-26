@@ -35,6 +35,9 @@ import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -52,6 +55,7 @@ import com.somalapuram.pclauncher.feature.shell.widget.HostedWidget
 import com.somalapuram.pclauncher.feature.shell.widget.WidgetResizeFrame
 import com.somalapuram.pclauncher.core.design.LocalPcColors
 import com.somalapuram.pclauncher.core.design.PcCorners
+import com.somalapuram.pclauncher.core.design.labelShadowFor
 import com.somalapuram.pclauncher.core.design.PcHover
 import com.somalapuram.pclauncher.core.design.PcMotion
 import com.somalapuram.pclauncher.core.design.PcSize
@@ -105,6 +109,8 @@ fun DesktopAppGrid(
     /** Drop a widget on a new cell. Refused by the store when it would overlap. */
     onMoveWidget: (widgetId: Int, cell: DesktopCell) -> Unit = { _, _ -> },
     onRemoveWidget: (widgetId: Int) -> Unit = {},
+    /** Report the dp a widget occupies, so its provider can lay out for it. */
+    onReportWidgetSize: (widgetId: Int, widthDp: Int, heightDp: Int) -> Unit = { _, _, _ -> },
 ) {
     val density = LocalDensity.current
     var desktopMenuOpen by remember { mutableStateOf(false) }
@@ -210,6 +216,7 @@ fun DesktopAppGrid(
                 onResizeDrag = { edge, pixels -> onResizeDrag(widgetId, edge, pixels) },
                 onResizeStart = { onResizeStart(widgetId) },
                 onResizeEnd = onResizeEnd,
+                onReportSize = { w, h -> onReportWidgetSize(widgetId, w, h) },
             )
         }
 
@@ -316,11 +323,18 @@ private fun DesktopIcon(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
-                modifier = Modifier
-                    // A readable label over an arbitrary wallpaper needs its own ground; a text
-                    // shadow would cost a layer per icon on a CPU renderer.
-                    .background(colors.scrim.copy(alpha = 0.45f), RoundedCornerShape(4.dp))
-                    .padding(horizontal = 4.dp, vertical = 1.dp),
+                // A shadow rather than a rectangle. The rectangle was chosen because a shadow
+                // "would cost a layer per icon on a CPU renderer" — but it is a blur on twenty
+                // short, static strings, and the boxes were visible on every frame regardless
+                // (visual-pass.md).
+                style = TextStyle(
+                    shadow = Shadow(
+                        color = labelShadowFor(darkChrome = colors.onSurface.luminance() > 0.5f),
+                        offset = Offset(0f, 1f),
+                        blurRadius = 4f,
+                    ),
+                ),
+                modifier = Modifier.padding(horizontal = 2.dp),
             )
         }
 

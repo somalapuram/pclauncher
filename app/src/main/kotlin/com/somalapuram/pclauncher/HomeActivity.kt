@@ -10,6 +10,8 @@ import com.somalapuram.pclauncher.desktop.AppLauncher
 import com.somalapuram.pclauncher.desktop.ShellController
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.isSystemInDarkTheme
+import com.somalapuram.pclauncher.core.design.chromeIsDark
+import com.somalapuram.pclauncher.wallpaper.rememberWallpaperTone
 import androidx.compose.runtime.remember
 import com.somalapuram.pclauncher.core.apps.AppEntry
 import com.somalapuram.pclauncher.core.design.PcTheme
@@ -81,7 +83,15 @@ class HomeActivity : ComponentActivity() {
         val trayActions = com.somalapuram.pclauncher.feature.shell.tray.SystemTrayActions(this)
 
         setContent {
-            val dark = isSystemInDarkTheme()
+            // The wallpaper decides, not the system theme: the shell sits directly on the
+            // wallpaper, so what it needs to know is what is behind it. A light theme over a dark
+            // wallpaper is an ordinary configuration and is exactly where the old answer looked
+            // worst (wallpaper-chrome.md). Falls through to the system setting when the wallpaper
+            // says nothing.
+            val dark = chromeIsDark(
+                tone = rememberWallpaperTone(),
+                systemDark = isSystemInDarkTheme(),
+            )
             val tray by remember { traySource.trayState() }
                 .collectAsState(initial = TrayState())
             // Rebuilt when the theme flips, so the dock reloads icons baked for the new palette
@@ -127,15 +137,30 @@ class HomeActivity : ComponentActivity() {
                             permission = permission,
                             columnsAvailable = columns,
                             rowsAvailable = rows,
-                        ) { widthCells, heightCells ->
-                            // The provider has to be told, or it keeps rendering for the old size
-                            // and the resize is just a stretched picture of the old widget.
-                            widgets?.applySize(
-                                id,
-                                widthCells * DesktopCellDp,
-                                heightCells * DesktopCellHeightDp,
-                            )
+                        ) { _, _ ->
+                            // Nothing to do here. The size is reported from the placement itself
+                            // (`onReportWidgetSize`), which covers this resize *and* the two cases
+                            // this call site could never see: a widget merely placed, and one
+                            // re-created after a restart (widget-sizing.md).
                         }
+                    },
+                    onReportWidgetSize = { id, widthDp, heightDp ->
+                        widgets?.applySize(id, widthDp, heightDp)
+                    },
+                    deviceName = com.somalapuram.pclauncher.feature.shell.start.displayableDeviceName(
+                        // The name the user actually set — what Bluetooth and Nearby show. The
+                        // model only stands in when nothing has been set.
+                        deviceName = runCatching {
+                            android.provider.Settings.Global.getString(
+                                contentResolver,
+                                android.provider.Settings.Global.DEVICE_NAME,
+                            )
+                        }.getOrNull(),
+                        model = android.os.Build.MODEL,
+                    ),
+                    powerPrivileges = com.somalapuram.pclauncher.power.powerPrivilegesOf(this),
+                    onPowerAction = { action ->
+                        com.somalapuram.pclauncher.power.performPowerAction(this, action)
                     },
                     outcome = outcome,
                     isDefaultHome = HomeRole.isDefault(this),

@@ -9,14 +9,36 @@
   AGP 8 rejects this attribute outright. The two cannot both be satisfied by
   one manifest, so main carries the Gradle form and this branch carries the
   Soong form. Keep it in step with the namespace on main.
+
+  xmlns:tools comes from main and is kept: tools:ignore is used on the two
+  protected permissions below, so dropping the namespace would break the
+  manifest rather than merely lose a lint hint.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="com.somalapuram.pclauncher">
 
     <!--
       SRS §3: no INTERNET permission. v1 has no network, no accounts, no telemetry.
       Deliberately absent, not forgotten.
     -->
+
+    <!--
+        Both are signature|privileged, so an ordinary build is simply not granted them and the
+        Start menu's device-power controls stay disabled with the reason shown. The AOSP branch
+        signs and allowlists the app, the same binary is granted them, and the controls become live
+        with no code change (start-power.md, SRS §5.2).
+
+        `ProtectedPermissions` is suppressed rather than baselined: lint is right that an ordinary
+        app cannot hold these, and that is the whole design — the declaration is what lets the
+        privileged build be granted them, and the UI is written to expect the denial.
+    -->
+    <uses-permission
+        android:name="android.permission.REBOOT"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission
+        android:name="android.permission.SHUTDOWN"
+        tools:ignore="ProtectedPermissions" />
 
     <application
         android:name=".PcLauncherApplication"

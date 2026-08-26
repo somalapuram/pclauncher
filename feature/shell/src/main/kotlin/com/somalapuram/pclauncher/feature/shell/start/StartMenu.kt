@@ -3,6 +3,8 @@ package com.somalapuram.pclauncher.feature.shell.start
 import androidx.compose.foundation.Image
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -75,10 +77,17 @@ fun StartMenu(
     onDismiss: () -> Unit,
     iconFor: (AppEntry) -> android.graphics.drawable.Drawable?,
     modifier: Modifier = Modifier,
+    deviceName: String? = null,
+    /** What the shell is allowed to do to the device, read at runtime (start-power.md). */
+    powerPrivileges: PowerPrivileges = PowerPrivileges(),
+    onPowerAction: (PowerAction) -> Unit = {},
 ) {
     val colors = LocalPcColors.current
     var query by remember { mutableStateOf("") }
-    var selected by remember { mutableStateOf(0) }
+    // Null until the user engages the keyboard. An Int starting at zero cannot express "nothing
+    // selected", which is why the menu used to open with its first app already highlighted
+    // (start-selection.md).
+    var selected by remember { mutableStateOf<Selection>(null) }
     val focusRequester = remember { FocusRequester() }
     val gridState = rememberLazyGridState()
 
@@ -86,8 +95,10 @@ fun StartMenu(
 
     // The selection must survive filtering — clamping rather than resetting keeps the highlight
     // where the user is looking when results shrink under them.
-    LaunchedEffect(filtered.size) { selected = selected.coerceIn(0, maxOf(0, filtered.size - 1)) }
-    LaunchedEffect(selected) { if (filtered.isNotEmpty()) gridState.animateScrollToItem(selected) }
+    LaunchedEffect(filtered.size) { selected = selectionAfterFilter(selected, filtered.size) }
+    LaunchedEffect(selected) {
+        selected?.let { if (filtered.isNotEmpty()) gridState.animateScrollToItem(it) }
+    }
     // SRS §6.4 wants typing to land in search the moment the menu opens — which on the target
     // machine means a hardware keyboard, and there focusing costs nothing. Where the only keyboard
     // is the on-screen one, focusing raises it over half the shell, including the menu it belongs
@@ -110,6 +121,9 @@ fun StartMenu(
             // and at 96% those icons still bleed through and look like rendering ghosts. A menu
             // you can read the desktop through is the wrong trade (SRS §6.1 principle 1: the
             // user's content is what matters, and here the menu *is* the content).
+            // Above the desktop, not cut into it: a hard 1 px edge left the eye to work the
+            // boundary out from colour alone over a busy wallpaper (visual-pass.md).
+            .shadow(PanelElevation, RoundedCornerShape(PcCorners.Surface), clip = false)
             .background(colors.surface, RoundedCornerShape(PcCorners.Surface))
             .border(1.dp, colors.hairline, RoundedCornerShape(PcCorners.Surface))
             .padding(PcSpacing.Medium)
@@ -119,19 +133,23 @@ fun StartMenu(
                 // and every seam (row edges, a partial last row) is an off-by-one waiting to happen.
                 when (event.key) {
                     Key.DirectionDown -> {
-                        selected = moveInGrid(selected, GridMove.Down, filtered.size, StartColumns); true
+                        selected = selectionAfterMove(selected, GridMove.Down, filtered.size, StartColumns); true
                     }
                     Key.DirectionUp -> {
-                        selected = moveInGrid(selected, GridMove.Up, filtered.size, StartColumns); true
+                        selected = selectionAfterMove(selected, GridMove.Up, filtered.size, StartColumns); true
                     }
                     Key.DirectionLeft -> {
-                        selected = moveInGrid(selected, GridMove.Left, filtered.size, StartColumns); true
+                        selected = selectionAfterMove(selected, GridMove.Left, filtered.size, StartColumns); true
                     }
                     Key.DirectionRight -> {
-                        selected = moveInGrid(selected, GridMove.Right, filtered.size, StartColumns); true
+                        selected = selectionAfterMove(selected, GridMove.Right, filtered.size, StartColumns); true
                     }
                     Key.Enter, Key.NumPadEnter -> {
-                        filtered.getOrNull(selected)?.takeIf { it.isLaunchable }?.let(onLaunch); true
+                        // Nothing selected launches nothing: Enter must not fire an app the user
+                        // never pointed the keyboard at.
+                        selected?.let { filtered.getOrNull(it) }
+                            ?.takeIf { it.isLaunchable }?.let(onLaunch)
+                        true
                     }
                     Key.Escape -> { onDismiss(); true }
                     else -> false
@@ -140,15 +158,19 @@ fun StartMenu(
     ) {
         SearchField(
             query = query,
-            onQueryChange = { query = it; selected = 0 },
+            onQueryChange = { query = it; selected = selectionAfterQuery(it, filtered.size) },
             focusRequester = focusRequester,
         )
 
         Text(
             text = if (query.isBlank()) "All apps" else "${filtered.size} of ${entries.size}",
             color = colors.onSurfaceMuted,
-            fontSize = 11.sp,
-            modifier = Modifier.padding(vertical = PcSpacing.Small),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 0.4.sp,
+            // Room above it so it reads as a heading over the grid rather than a caption stuck to
+            // the search field.
+            modifier = Modifier.padding(top = PcSpacing.Medium, bottom = PcSpacing.Small),
         )
 
         when {
@@ -159,14 +181,16 @@ fun StartMenu(
                 // count would make it depend on the measured width.
                 columns = GridCells.Fixed(StartColumns),
                 state = gridState,
-                modifier = Modifier.fillMaxWidth(),
+                // The flexible one, so the footer keeps its own height instead of being clipped
+                // by a grid that took everything.
+                modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
                 horizontalArrangement = Arrangement.spacedBy(PcSpacing.ExtraSmall),
                 verticalArrangement = Arrangement.spacedBy(PcSpacing.ExtraSmall),
             ) {
                 items(filtered, key = { it.key.component.flattenToShortString() + it.key.user }) { entry ->
                     AppCell(
                         entry = entry,
-                        isSelected = filtered.getOrNull(selected) === entry,
+                        isSelected = selected?.let { filtered.getOrNull(it) } === entry,
                         isPinned = isPinned(entry),
                         painter = iconFor(entry),
                         onLaunch = { onLaunch(entry) },
@@ -175,6 +199,12 @@ fun StartMenu(
                 }
             }
         }
+
+        PowerFooter(
+            deviceName = deviceName,
+            privileges = powerPrivileges,
+            onAction = onPowerAction,
+        )
     }
 }
 
@@ -322,3 +352,6 @@ const val StartColumns = 5
 
 /** The keyboard caret's row. Stronger than a hover, because Enter acts here. */
 private const val SelectedWash = 0.14f
+
+/** Enough to lift the panel off the wallpaper; one shadow, well inside the budget (SRS §4.3). */
+private val PanelElevation = 16.dp

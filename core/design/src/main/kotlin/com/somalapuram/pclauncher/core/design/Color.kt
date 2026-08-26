@@ -61,3 +61,13 @@ fun pcColorsFrom(scheme: ColorScheme): PcColors = PcColors(
     // guaranteed against.
     scrim = scheme.surface,
 )
+
+/**
+ * The shadow a desktop label needs to stay legible without a box behind it.
+ *
+ * A wallpaper is not one colour: this shell's is near-black on the right and pale blue at the top
+ * left, so a label tuned to the wallpaper *overall* still fails locally. A shadow in the opposite
+ * polarity to the text carries it over both (visual-pass.md).
+ */
+fun labelShadowFor(darkChrome: Boolean): Color =
+    if (darkChrome) Color(0xCC000000) else Color(0x99FFFFFF)

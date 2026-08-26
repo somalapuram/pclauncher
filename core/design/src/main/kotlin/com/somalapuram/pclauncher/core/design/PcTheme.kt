@@ -1,7 +1,10 @@
 package com.somalapuram.pclauncher.core.design
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -34,26 +37,36 @@ fun PcTheme(
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
-    val colors = when {
+
+    // Kept as a scheme, not just as our own tokens, because Material's own components — dropdown
+    // menus, the volume slider — read `MaterialTheme` and nothing else. Without wrapping them, a
+    // dark shell served light menus, which is what a shell that never wrapped MaterialTheme looks
+    // like once its polarity stops matching the system's.
+    val scheme = when {
         // A device that refuses to produce a scheme falls back rather than failing: this runs on
         // the way to drawing the home screen (GATE 4).
         dynamicColor -> runCatching {
-            pcColorsFrom(
-                if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context),
-            )
-        }.getOrElse { if (darkTheme) PcDarkColors else PcLightColors }
+            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        }.getOrElse { fallbackScheme(darkTheme) }
 
-        darkTheme -> PcDarkColors
-        else -> PcLightColors
+        else -> fallbackScheme(darkTheme)
     }
+    val colors = runCatching { pcColorsFrom(scheme) }
+        .getOrElse { if (darkTheme) PcDarkColors else PcLightColors }
     val hardwareAccelerated = LocalView.current.isHardwareAccelerated
 
-    CompositionLocalProvider(
-        LocalPcColors provides colors,
-        LocalSurfaceTreatment provides surfaceTreatmentFor(
-            hardwareAccelerated = hardwareAccelerated,
-            blurEnabledByUser = blurEnabled,
-        ),
-        content = content,
-    )
+    MaterialTheme(colorScheme = scheme) {
+        CompositionLocalProvider(
+            LocalPcColors provides colors,
+            LocalSurfaceTreatment provides surfaceTreatmentFor(
+                hardwareAccelerated = hardwareAccelerated,
+                blurEnabledByUser = blurEnabled,
+            ),
+            content = content,
+        )
+    }
 }
+
+/** The palette when the platform will not produce a dynamic one. */
+private fun fallbackScheme(darkTheme: Boolean) =
+    if (darkTheme) darkColorScheme() else lightColorScheme()

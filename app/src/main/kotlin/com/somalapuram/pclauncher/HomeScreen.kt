@@ -104,6 +104,11 @@ fun HomeScreen(
     onResizeEnd: () -> Unit = {},
     onMoveWidget: (Int, com.somalapuram.pclauncher.core.data.layout.DesktopCell) -> Unit = { _, _ -> },
     onRemoveWidget: (Int) -> Unit = {},
+    onReportWidgetSize: (Int, Int, Int) -> Unit = { _, _, _ -> },
+    deviceName: String? = null,
+    powerPrivileges: com.somalapuram.pclauncher.feature.shell.start.PowerPrivileges =
+        com.somalapuram.pclauncher.feature.shell.start.PowerPrivileges(),
+    onPowerAction: (com.somalapuram.pclauncher.feature.shell.start.PowerAction) -> Unit = {},
     isDefaultHome: Boolean,
     onSetDefaultHome: () -> Unit,
     onRetry: () -> Unit,
@@ -209,6 +214,7 @@ fun HomeScreen(
                     onResizeEnd = onResizeEnd,
                     onMoveWidget = onMoveWidget,
                     onRemoveWidget = onRemoveWidget,
+                    onReportWidgetSize = onReportWidgetSize,
                     layout = effectiveLayout,
                     onGridMetrics = { w, h, rows, origin, widthPx ->
                         cellW = w; cellH = h; gridRows = rows
@@ -313,6 +319,9 @@ fun HomeScreen(
                 onTogglePin = onTogglePin,
                 onDismiss = { startOpen = false },
                 iconFor = iconFor,
+                deviceName = deviceName,
+                powerPrivileges = powerPrivileges,
+                onPowerAction = { startOpen = false; onPowerAction(it) },
             )
         }
     }
@@ -353,6 +362,7 @@ private fun Desktop(
     onResizeEnd: () -> Unit,
     onMoveWidget: (Int, com.somalapuram.pclauncher.core.data.layout.DesktopCell) -> Unit,
     onRemoveWidget: (Int) -> Unit,
+    onReportWidgetSize: (Int, Int, Int) -> Unit,
     layout: DesktopLayout,
     onGridMetrics: (Float, Float, Int, androidx.compose.ui.geometry.Offset, Float) -> Unit,
 ) {
@@ -377,6 +387,7 @@ private fun Desktop(
             onResizeEnd = onResizeEnd,
             onMoveWidget = onMoveWidget,
             onRemoveWidget = onRemoveWidget,
+            onReportWidgetSize = onReportWidgetSize,
         )
         if (!isDefaultHome) {
             SetHomePrompt(onSetDefaultHome)
