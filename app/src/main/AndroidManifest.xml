@@ -1,5 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<!--
+  NOTE (aosp branch): the package attribute below is what makes this manifest
+  usable by Soong, and is exactly why this branch exists.
+
+  Soong requires the main manifest to declare a package:
+      Main AndroidManifest.xml manifest:package attribute is not declared
+  while the Gradle build takes it from `namespace` in app/build.gradle.kts and
+  AGP 8 rejects this attribute outright. The two cannot both be satisfied by
+  one manifest, so main carries the Gradle form and this branch carries the
+  Soong form. Keep it in step with the namespace on main.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.somalapuram.pclauncher">
 
     <!--
       SRS §3: no INTERNET permission. v1 has no network, no accounts, no telemetry.

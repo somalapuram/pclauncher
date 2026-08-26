@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.somalapuram.pclauncher.core.apps">
 
     <!--
       Recency ordering (SRS §11). An appop permission: declaring it is not enough — the user grants

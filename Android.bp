@@ -1,0 +1,152 @@
+// Soong build for pclauncher, alongside the Gradle build used in Android Studio.
+//
+// Both build systems read the same sources. Gradle (build.gradle.kts, the
+// version catalog, gradlew) is how this is developed standalone on a phone or
+// emulator; Soong is how it ships inside aosp-pc-x86_64, where it is compiled
+// into the system image in the same pass as the rest of the platform. Neither
+// generates the other -- they are maintained side by side, and the notes below
+// record where they necessarily differ.
+//
+// Why Soong rather than building an APK with Gradle and importing it as a
+// prebuilt: no host Android SDK or network access is needed at build time, the
+// platform certificate and privileged placement work naturally when they are
+// eventually wanted, and the app is rebuilt whenever the platform is. The
+// prebuilt route would need a signing dance for any of that.
+//
+// Everything this needs is already in the AOSP tree and was checked rather than
+// assumed:
+//
+//   compose compiler   external/kotlinc/lib/compose-compiler-plugin.jar
+//   compose runtime    prebuilts/sdk/current/androidx/m2repository/.../compose/*
+//   androidx           core-ktx, activity-compose, lifecycle-*-compose, datastore
+//   kotlin             kotlin-stdlib, kotlinx-coroutines-android
+//
+// Note there is NO kotlin_plugins entry for Compose. Soong applies the Compose
+// compiler plugin itself; the working precedent in this tree is
+// packages/modules/HealthFitness/testapps/toolbox/Android.bp, which pulls in
+// the same Compose libraries and likewise declares no plugin.
+
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+// One module rather than ten.
+//
+// settings.gradle.kts declares :app, :core:{design,data,apps},
+// :feature:{desktop,shell,search,windows,settings} and :platform:privileged,
+// and SRS section 9 makes that separation an architectural rule -- only :app
+// depends on features. That rule is enforced by Gradle, where it belongs: it is
+// about how the code is allowed to be written.
+//
+// Soong does not need the split to produce a correct APK, and mirroring it here
+// would mean ten android_library modules to keep in step with settings.gradle.kts
+// by hand, silently drifting the first time a module is added. So the shipping
+// build compiles the sources as one unit. If the boundaries are ever wanted at
+// this level too -- to catch a layering violation the Gradle build somehow did
+// not -- splitting is mechanical.
+//
+// Only six of the ten modules have sources today; the glob covers the rest as
+// they appear, without needing this file touched.
+android_app {
+    name: "PcLauncher",
+
+    srcs: [
+        "app/src/main/kotlin/**/*.kt",
+        "core/*/src/main/kotlin/**/*.kt",
+        "feature/*/src/main/kotlin/**/*.kt",
+        "platform/*/src/main/kotlin/**/*.kt",
+    ],
+
+    // sdk_version "current" -- the public SDK -- because that is genuinely all
+    // this uses. Every android.* import in the tree resolves to public API:
+    // LauncherApps, AppWidgetHost, RoleManager, UsageStatsManager and so on.
+    // Nothing reaches into com.android.internal or a @SystemApi, so there is no
+    // reason to build against system_current and give it more surface than it
+    // asks for. Revisit only if :platform:privileged grows something that needs
+    // it, which is what that module is named for.
+    sdk_version: "current",
+
+    // Replace Launcher3QuickStep rather than sit alongside it.
+    //
+    // Launcher3QuickStep is not named in this device's PRODUCT_PACKAGES: it
+    // arrives through an inherit (build/make/target/product/handheld_system_ext.mk),
+    // and PRODUCT_PACKAGES has no subtraction, so there is nothing a .mk here
+    // could delete. `overrides` is the mechanism for exactly this -- the
+    // overridden module is skipped at install time -- and it is what AOSP's own
+    // replacement launcher uses: packages/apps/Car/Launcher/app/Android.bp
+    // overrides Launcher2, Launcher3 and Launcher3QuickStep in the same way.
+    //
+    // Launcher2 and Launcher3 are listed as well. Neither is installed by this
+    // product today, but naming them costs nothing and means a future inherit
+    // that drags one in cannot quietly put a second home app on the device.
+    //
+    // Consequence worth being deliberate about: Launcher3QuickStep also
+    // provides Quickstep, which is the recents/overview and taskbar
+    // implementation SystemUI talks to. Removing it removes those too, so until
+    // pclauncher provides them this device has a home screen and no recents.
+    // That is the intended direction (SRS: the dock and window list replace
+    // them), but it is a real capability gap in the meantime rather than a
+    // clean swap.
+    overrides: [
+        "Launcher2",
+        "Launcher3",
+        "Launcher3QuickStep",
+    ],
+
+    manifest: "app/src/main/AndroidManifest.xml",
+
+    // Gradle merges every module's manifest automatically. Soong does not: the
+    // library manifests have to be named, and a missing one fails at runtime
+    // rather than at build time. core/apps contributes PACKAGE_USAGE_STATS and
+    // the <queries> declaration the app inventory needs; feature/shell
+    // contributes ACCESS_NETWORK_STATE for the tray's Wi-Fi indicator. Both are
+    // load-bearing -- without them the launcher builds and then quietly cannot
+    // see installed apps.
+    additional_manifests: [
+        "core/apps/src/main/AndroidManifest.xml",
+        "feature/shell/src/main/AndroidManifest.xml",
+    ],
+
+    resource_dirs: ["app/src/main/res"],
+
+    static_libs: [
+        "kotlin-stdlib",
+        "kotlinx-coroutines-android",
+
+        // Hilt. One entry is enough: external/dagger2's hilt_android module
+        // declares exported_plugins for dagger2-compiler and every Hilt
+        // annotation processor (entry_point, aggregated_deps, alias_of,
+        // define_component, root, ...), so they reach this module transitively.
+        // Nothing here needs a plugins: block of its own -- the same reason
+        // frameworks/base/packages/CredentialManager declares none.
+        //
+        // Without it the Compose half compiles cleanly and every Hilt symbol
+        // fails: unresolved reference 'dagger', 'HiltAndroidApp', 'EntryPoint',
+        // 'SingletonComponent', 'EntryPointAccessors'.
+        "hilt_android",
+
+        "androidx.core_core-ktx",
+        "androidx.activity_activity-compose",
+        "androidx.lifecycle_lifecycle-runtime-compose",
+        "androidx.lifecycle_lifecycle-viewmodel-compose",
+        "androidx.datastore_datastore",
+        "androidx.datastore_datastore-preferences",
+
+        "androidx.compose.runtime_runtime",
+        "androidx.compose.ui_ui",
+        "androidx.compose.ui_ui-graphics",
+        "androidx.compose.ui_ui-tooling-preview",
+        "androidx.compose.foundation_foundation",
+        "androidx.compose.material3_material3",
+    ],
+
+    // The Gradle build pins its own dependency versions in
+    // gradle/libs.versions.toml; this build gets whatever the platform tree
+    // ships (Compose 1.12.0-alpha01 at the time of writing). The two will
+    // drift, and this is the one that ships -- so a Compose API that compiles
+    // in Android Studio can still fail here. That is a property of building
+    // against the platform, not a fault to fix.
+    optimize: {
+        enabled: false,
+    },
+}
