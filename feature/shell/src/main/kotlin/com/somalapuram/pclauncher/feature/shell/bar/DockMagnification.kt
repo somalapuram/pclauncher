@@ -66,15 +66,4 @@ object DockMagnification {
         return index
     }
 
-    /**
-     * Extra height the bar needs so a magnified icon is not clipped.
-     *
-     * The bar grows rather than the icon overflowing: an icon drawn outside the bar has no
-     * background behind it and reads as a rendering glitch over the wallpaper.
-     */
-    fun barHeightFor(baseHeight: Float, iconSize: Float, maxScale: Float = MAX_SCALE): Float =
-        baseHeight + iconSize * (maxScale - 1f) * GROWTH_SHARE
-
-    /** The bar takes part of the growth; the rest lifts the icon above the bar's centre line. */
-    private const val GROWTH_SHARE = 0.55f
 }

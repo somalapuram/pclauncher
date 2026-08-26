@@ -1,6 +1,5 @@
 package com.somalapuram.pclauncher.feature.shell.bar
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import com.somalapuram.pclauncher.core.design.surfaceSheen
 import androidx.compose.foundation.clickable
@@ -33,7 +32,6 @@ import androidx.compose.ui.unit.dp
 import com.somalapuram.pclauncher.core.design.LocalPcColors
 import com.somalapuram.pclauncher.core.design.LocalSurfaceTreatment
 import com.somalapuram.pclauncher.core.design.PcCorners
-import com.somalapuram.pclauncher.core.design.PcMotion
 import com.somalapuram.pclauncher.core.design.PcSize
 import com.somalapuram.pclauncher.core.design.PcSpacing
 import com.somalapuram.pclauncher.core.design.SurfaceTreatment
@@ -77,13 +75,20 @@ fun ShellBar(
     val density = LocalDensity.current
 
     var pointerX by remember { mutableStateOf<Float?>(null) }
-    var dockOriginX by remember { mutableStateOf(0f) }
+    // Both measured in root coordinates so they can be compared. The previous version declared
+    // this, read it, and never assigned it — so the pointer was mapped against a dock starting at
+    // x = 0 while the real one is centred in a 2560 px bar.
+    var dockOriginInRoot by remember { mutableStateOf(0f) }
+    var barContentOriginInRoot by remember { mutableStateOf(0f) }
 
-    val itemPitchPx = with(density) { PcSize.MinTouchTarget.toPx() }
+    // The width a dock item actually lays out at, not the touch minimum it used to assume: an item
+    // sizes to the larger of the two, and the icons are now bigger than the minimum.
+    val itemPitchPx = with(density) { maxOf(PcSize.MinTouchTarget, PcSize.DockIcon).toPx() }
     val pointerIndex = if (state.magnificationEnabled) {
         DockMagnification.pointerIndexFor(
-            pointerX = pointerX,
-            dockStartX = dockOriginX,
+            // Lifted into root space: the pointer arrives local to the bar's padded content box.
+            pointerX = pointerX?.let { it + barContentOriginInRoot },
+            dockStartX = dockOriginInRoot,
             itemPitch = itemPitchPx,
             itemCount = state.dockItems.size,
         )
@@ -96,19 +101,13 @@ fun ShellBar(
         is SurfaceTreatment.Blur -> treatment.scrimAlpha
     }
 
-    // The bar grows so a magnified icon is contained; an icon drawn outside it would float over
-    // the wallpaper with no background and read as a glitch.
-    val extraHeight by animateFloatAsState(
-        targetValue = if (pointerIndex != null) MagnifiedExtraHeight else 0f,
-        animationSpec = PcMotion.DockMagnify,
-        label = "bar-height",
-    )
-
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = PcSize.DockHeightAtRest)
-            .height(PcSize.DockHeightAtRest + extraHeight.dp)
+            // Fixed. Growing the bar to contain a magnified icon moved the whole piece of
+            // furniture — and everything measuring against its top edge — whenever a pointer
+            // crossed it. A dock's icons rise above its background; the background stays put.
+            .height(PcSize.DockHeightAtRest)
             .onGloballyPositioned {
                 val top = it.positionInRoot().y
                 onBoundsChanged(top, top + it.size.height)
@@ -127,6 +126,9 @@ fun ShellBar(
                 shape = RoundedCornerShape(PcCorners.Dock),
             )
             .padding(horizontal = PcSpacing.Small)
+            // Captured at the same level the pointer is read at, so the two agree about where
+            // zero is.
+            .onGloballyPositioned { barContentOriginInRoot = it.positionInRoot().x }
             .pointerInput(state.magnificationEnabled) {
                 awaitPointerEventScope {
                     while (true) {
@@ -158,7 +160,9 @@ fun ShellBar(
             contentAlignment = Alignment.Center,
         ) {
             Row(
-                modifier = Modifier.onSizeChanged { /* origin captured below via position */ },
+                modifier = Modifier.onGloballyPositioned {
+                    dockOriginInRoot = it.positionInRoot().x
+                },
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -222,4 +226,3 @@ private fun ShowDesktopHandle(onClick: () -> Unit, modifier: Modifier = Modifier
     )
 }
 
-private const val MagnifiedExtraHeight = 14f

@@ -3,8 +3,10 @@ package com.somalapuram.pclauncher.feature.shell.bar
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.dp
 import com.somalapuram.pclauncher.core.design.PcGlyphs
+import com.somalapuram.pclauncher.core.design.PcSize
 import com.somalapuram.pclauncher.core.design.PcTheme
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -87,5 +89,21 @@ class BarAlignmentTest {
         val trayCentre = (tray.top + tray.bottom).value / 2f
 
         assertTrue(abs(trayCentre - centreY("Alpha")) < 1f)
+    }
+
+    @Test
+    fun `the bar rests at its resting height`() {
+        // It used to grow 14 dp under the pointer, moving the whole bar -- and everything measured
+        // against its top edge -- whenever a pointer crossed it. A dock's icons rise above its
+        // background; the background stays put.
+        bar()
+
+        val root = compose.onRoot().getUnclippedBoundsInRoot()
+        val barHeight = root.bottom - root.top
+
+        assertTrue(
+            "the bar measures ${'$'}barHeight, taller than its resting height",
+            barHeight <= PcSize.DockHeightAtRest,
+        )
     }
 }

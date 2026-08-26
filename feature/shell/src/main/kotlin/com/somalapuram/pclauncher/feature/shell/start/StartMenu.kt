@@ -81,7 +81,13 @@ fun StartMenu(
     // where the user is looking when results shrink under them.
     LaunchedEffect(filtered.size) { selected = selected.coerceIn(0, maxOf(0, filtered.size - 1)) }
     LaunchedEffect(selected) { if (filtered.isNotEmpty()) gridState.animateScrollToItem(selected) }
-    LaunchedEffect(Unit) { runCatching { focusRequester.requestFocus() } }
+    // SRS §6.4 wants typing to land in search the moment the menu opens — which on the target
+    // machine means a hardware keyboard, and there focusing costs nothing. Where the only keyboard
+    // is the on-screen one, focusing raises it over half the shell, including the menu it belongs
+    // to, and the user has to dismiss it before they can see what they opened.
+    LaunchedEffect(Unit) {
+        if (shouldFocusSearchOnOpen()) runCatching { focusRequester.requestFocus() }
+    }
 
     Column(
         modifier = modifier

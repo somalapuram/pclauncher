@@ -36,7 +36,7 @@
             android:resizeableActivity="true"
             android:stateNotNeeded="true"
             android:theme="@style/Theme.PcLauncher"
-            android:windowSoftInputMode="adjustPan">
+            android:windowSoftInputMode="adjustNothing">
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

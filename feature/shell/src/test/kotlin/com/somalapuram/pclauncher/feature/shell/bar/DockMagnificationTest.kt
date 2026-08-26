@@ -1,6 +1,8 @@
 package com.somalapuram.pclauncher.feature.shell.bar
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -96,10 +98,47 @@ class DockMagnificationTest {
         assertTrue("expected a usable index just outside the dock", index != null)
     }
 
+    // --- the origin actually being supplied ---------------------------------------------------
+
     @Test
-    fun `the bar grows enough to contain a magnified icon`() {
-        val base = 56f
-        val grown = DockMagnification.barHeightFor(baseHeight = base, iconSize = 40f)
-        assertTrue("bar must grow, was $grown", grown > base)
+    fun `a dock centred in the bar magnifies the icon under the pointer`() {
+        // The regression: `dockOriginX` was declared, read, and never assigned, so the pointer was
+        // mapped against a dock starting at zero while the real one sits near the middle of a
+        // 2560 px bar. Everything still compiled and the wrong icon grew.
+        val pitch = 96f
+        val dockStart = 1000f
+        val items = 8
+
+        // Pointer over the middle of the third item.
+        val pointer = dockStart + pitch * 2 + pitch / 2
+        val index = DockMagnification.pointerIndexFor(pointer, dockStart, pitch, items)
+
+        assertEquals(2f, index!!, 0.01f)
+        assertTrue(
+            "the icon under the pointer is not the largest",
+            DockMagnification.scaleAt(2, index) > DockMagnification.scaleAt(3, index),
+        )
+    }
+
+    @Test
+    fun `assuming the dock starts at zero picks a different icon entirely`() {
+        // What the bug did: same pointer, origin left at its default.
+        val pitch = 96f
+        val pointer = 1000f + pitch * 2 + pitch / 2
+
+        val correct = DockMagnification.pointerIndexFor(pointer, 1000f, pitch, 8)
+        val withDefaultOrigin = DockMagnification.pointerIndexFor(pointer, 0f, pitch, 8)
+
+        assertNotEquals(correct, withDefaultOrigin)
+    }
+
+    @Test
+    fun `the pitch decides which item a position falls in`() {
+        // The second half of the offset bug: the index was computed with the touch minimum while
+        // items lay out at the icon size, so every item past the first drifted a little more.
+        val atTouchPitch = DockMagnification.pointerIndexFor(1000f + 44f * 5, 1000f, 44f, 8)
+        val atRealPitch = DockMagnification.pointerIndexFor(1000f + 44f * 5, 1000f, 48f, 8)
+
+        assertNotEquals(atTouchPitch, atRealPitch)
     }
 }
