@@ -1,7 +1,11 @@
 package com.somalapuram.pclauncher.feature.shell.start
 
 import androidx.compose.foundation.Image
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -33,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
@@ -48,6 +53,8 @@ import androidx.compose.ui.unit.sp
 import com.somalapuram.pclauncher.core.apps.AppEntry
 import com.somalapuram.pclauncher.core.design.LocalPcColors
 import com.somalapuram.pclauncher.core.design.PcCorners
+import com.somalapuram.pclauncher.core.design.PcHover
+import com.somalapuram.pclauncher.core.design.PcMotion
 import com.somalapuram.pclauncher.core.design.PcSpacing
 import com.somalapuram.pclauncher.feature.shell.bar.bitmapPainterFor
 import com.somalapuram.pclauncher.feature.shell.interaction.appItemGestures
@@ -222,21 +229,45 @@ private fun AppCell(
     val colors = LocalPcColors.current
     var menuOpen by remember { mutableStateOf(false) }
 
+    val interactions = remember { MutableInteractionSource() }
+    val hovered by interactions.collectIsHoveredAsState()
+
+    // Hover and keyboard selection are different states and must not look the same: the caret can
+    // be on one row while the pointer rests on another, and the user needs to see which is which.
+    // Selection is the stronger of the two, being where Enter will act.
+    val wash by animateFloatAsState(
+        targetValue = when {
+            isSelected -> SelectedWash
+            menuOpen -> PcHover.PressedWash
+            else -> PcHover.washFor(hovered)
+        },
+        animationSpec = PcMotion.DockMagnify,
+        label = "start-entry-wash",
+    )
+    val scale by animateFloatAsState(
+        targetValue = PcHover.scaleFor(hovered && !isSelected),
+        animationSpec = PcMotion.DockMagnify,
+        label = "start-entry-scale",
+    )
+
     Box {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(96.dp)
-                .background(
-                    if (isSelected) colors.onSurface.copy(alpha = 0.14f)
-                    else androidx.compose.ui.graphics.Color.Transparent,
-                    RoundedCornerShape(PcCorners.Popover),
-                )
+                .hoverable(interactions)
                 .appItemGestures(
                     key = entry.key,
                     enabled = entry.isLaunchable,
                     onClick = onLaunch,
                     onContextMenu = { _ -> menuOpen = true },
+                )
+                // After the gesture: a transform applies to everything inside it, and scaling the
+                // gesture node scales the coordinates it reports.
+                .graphicsLayer { scaleX = scale; scaleY = scale }
+                .background(
+                    colors.onSurface.copy(alpha = wash),
+                    RoundedCornerShape(PcCorners.Popover),
                 )
                 .padding(vertical = PcSpacing.Small),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -288,3 +319,6 @@ private fun AppCell(
  * eleven.
  */
 const val StartColumns = 5
+
+/** The keyboard caret's row. Stronger than a hover, because Enter acts here. */
+private const val SelectedWash = 0.14f

@@ -46,6 +46,8 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 ### design
 - [`design/dynamic-color.md`](design/dynamic-color.md) — adopt Android's Material You colours
   instead of a hardcoded palette, with a manual override. *Status: Accepted · Implemented.*
+- [`design/hover-feedback.md`](design/hover-feedback.md) — desktop icons, widgets and Start menu
+  entries answer the pointer. *Status: Implemented (hover unverified).*
 - [`design/icon-gloss.md`](design/icon-gloss.md) — a glaze over the glyph, an underside, and a
   light style that is actually glossy. *Status: Accepted · Implemented.*
 - [`design/icon-treatment.md`](design/icon-treatment.md) — squircle tiles with gloss, rim light and

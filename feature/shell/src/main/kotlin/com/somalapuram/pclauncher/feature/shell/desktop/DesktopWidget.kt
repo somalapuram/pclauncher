@@ -1,6 +1,12 @@
 package com.somalapuram.pclauncher.feature.shell.desktop
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
@@ -21,12 +27,17 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.somalapuram.pclauncher.core.data.layout.DesktopCell
 import com.somalapuram.pclauncher.core.data.layout.DesktopPlacement
 import com.somalapuram.pclauncher.core.data.layout.ResizeEdge
 import com.somalapuram.pclauncher.core.data.layout.ResizePermission
 import com.somalapuram.pclauncher.core.data.layout.cellAfterDrag
+import com.somalapuram.pclauncher.core.design.LocalPcColors
+import com.somalapuram.pclauncher.core.design.PcCorners
+import com.somalapuram.pclauncher.core.design.PcHover
+import com.somalapuram.pclauncher.core.design.PcMotion
 import com.somalapuram.pclauncher.feature.shell.widget.HostedWidget
 import com.somalapuram.pclauncher.feature.shell.widget.WidgetResizeFrame
 import kotlinx.coroutines.withTimeoutOrNull
@@ -65,6 +76,17 @@ fun DesktopWidget(
     var dragged by remember { mutableStateOf(Offset.Zero) }
     val isDragging = dragged != Offset.Zero
 
+    // Watched, never consumed: `hoverable` does not take the pointer, so the widget's own buttons
+    // keep working while the container is hovered.
+    val interactions = remember { MutableInteractionSource() }
+    val hovered by interactions.collectIsHoveredAsState()
+    val outline by animateFloatAsState(
+        targetValue = PcHover.outlineFor(hovered),
+        animationSpec = PcMotion.DockMagnify,
+        label = "widget-hover-outline",
+    )
+    val colors = LocalPcColors.current
+
     Box(
         modifier = modifier
             // The cell only. The drag is drawn by the child's layer rather than moved here,
@@ -82,6 +104,14 @@ fun DesktopWidget(
             )
             // A widget being dragged passes over the ones it is dragged across.
             .zIndex(if (isDragging) 1f else 0f)
+            .hoverable(interactions)
+            // An outline rather than a scale: a hosted widget is someone else's rendered UI, and
+            // scaling it resamples their pixels into a blur at the size widgets occupy.
+            .border(
+                width = 2.dp,
+                color = colors.accent.copy(alpha = outline),
+                shape = RoundedCornerShape(PcCorners.Surface),
+            )
             .widgetGestures(
                 // Keyed on everything the drop is computed from. `pointerInput` keeps the lambdas
                 // it was created with until a key changes, so leaving them out means a second drag
