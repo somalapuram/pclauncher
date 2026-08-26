@@ -3,30 +3,43 @@ package com.somalapuram.pclauncher.feature.shell.start
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.somalapuram.pclauncher.core.design.LocalPcColors
-import com.somalapuram.pclauncher.core.design.PcCorners
+import com.somalapuram.pclauncher.core.design.PcGlyphs
 import com.somalapuram.pclauncher.core.design.PcSpacing
 
 /**
- * The Start menu's footer (SRS §6.4).
+ * The Start menu's footer (SRS §6.4): the device, and two buttons.
  *
- * Two of its four controls cannot work off the target device, and they are shown anyway — disabled,
- * with the reason. Hiding them would make the shell look less capable than the machine it ships on
- * and leave the Stage B work nowhere to land; SRS §5.3 asks for what is unavailable *and why*.
+ * Buttons rather than a row of labelled controls. Four text buttons carrying their own
+ * unavailability notes wrapped to three lines each and crowded out the device name — and a footer
+ * is furniture, not a form.
+ *
+ * The power actions are grouped behind one control, the way Windows 11 does it. That is also what
+ * makes the disabled ones explicable: a menu row has space for a reason, where an icon does not.
  */
 @Composable
 fun PowerFooter(
@@ -36,71 +49,90 @@ fun PowerFooter(
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalPcColors.current
+    var powerMenuOpen by remember { mutableStateOf(false) }
 
-    // The device name gets its own line. On one row with four controls it was squeezed to nothing
-    // by the two that carry a reason underneath them.
-    Column(
+    Row(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = PcSpacing.Small, vertical = PcSpacing.Small),
-        verticalArrangement = Arrangement.spacedBy(PcSpacing.ExtraSmall),
+        horizontalArrangement = Arrangement.spacedBy(PcSpacing.ExtraSmall),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (deviceName.isNotBlank()) {
-            Text(text = deviceName, color = colors.onSurfaceMuted, fontSize = 11.sp)
-        }
+        Text(
+            text = deviceName,
+            color = colors.onSurfaceMuted,
+            fontSize = 12.sp,
+            modifier = Modifier.weight(1f),
+        )
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(PcSpacing.ExtraSmall),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            PowerActionOrder.forEach { action ->
-                PowerControl(
-                    action = action,
-                    enabled = isAvailable(action, privileges),
-                    reason = unavailableReason(action, privileges),
-                    onClick = { onAction(action) },
-                    // Equal shares, so a long reason cannot crowd out its neighbours.
-                    modifier = Modifier.weight(1f),
-                )
+        FooterButton(
+            glyph = PcGlyphs.Settings,
+            label = labelFor(PowerAction.OpenSettings),
+            onClick = { onAction(PowerAction.OpenSettings) },
+        )
+
+        Box {
+            FooterButton(
+                glyph = PcGlyphs.Power,
+                label = "Power",
+                onClick = { powerMenuOpen = true },
+            )
+
+            DropdownMenu(
+                expanded = powerMenuOpen,
+                onDismissRequest = { powerMenuOpen = false },
+            ) {
+                PowerMenuActions.forEach { action ->
+                    val reason = unavailableReason(action, privileges)
+                    DropdownMenuItem(
+                        enabled = reason == null,
+                        text = {
+                            Column {
+                                Text(labelFor(action), fontSize = 13.sp)
+                                // The reason lives here because a menu row has room for it and an
+                                // icon does not.
+                                if (reason != null) {
+                                    Text(
+                                        text = reason,
+                                        color = colors.onSurfaceMuted,
+                                        fontSize = 11.sp,
+                                    )
+                                }
+                            }
+                        },
+                        onClick = { powerMenuOpen = false; onAction(action) },
+                    )
+                }
             }
         }
     }
 }
 
+/** What sits behind the power button. Settings is a button of its own and is not repeated here. */
+private val PowerMenuActions = PowerActionOrder.filter { it != PowerAction.OpenSettings }
+
 @Composable
-private fun PowerControl(
-    action: PowerAction,
-    enabled: Boolean,
-    reason: String?,
+private fun FooterButton(
+    glyph: ImageVector,
+    label: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     val colors = LocalPcColors.current
-    val shape = RoundedCornerShape(PcCorners.Popover)
-    val label = labelFor(action)
 
-    Column(
-        modifier = modifier
-            .clip(shape)
-            .background(colors.onSurface.copy(alpha = if (enabled) 0.08f else 0.03f), shape)
-            // A disabled control is not clickable at all rather than clickable-and-ignored: a
-            // press that visibly happens and then does nothing reads as a fault.
-            .let { if (enabled) it.clickable(onClick = onClick) else it }
-            .padding(horizontal = PcSpacing.Small, vertical = PcSpacing.ExtraSmall)
-            .semantics {
-                contentDescription = if (reason == null) label else "$label, unavailable: $reason"
-            },
-        horizontalAlignment = Alignment.CenterHorizontally,
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(CircleShape)
+            .background(colors.onSurface.copy(alpha = 0.08f), CircleShape)
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = label,
-            color = if (enabled) colors.onSurface else colors.onSurfaceMuted.copy(alpha = 0.5f),
-            fontSize = 12.sp,
-            fontWeight = if (enabled) FontWeight.Medium else FontWeight.Normal,
+        Icon(
+            imageVector = glyph,
+            contentDescription = null,
+            tint = colors.onSurface,
+            modifier = Modifier.size(18.dp),
         )
-        if (reason != null) {
-            Text(text = reason, color = colors.onSurfaceMuted.copy(alpha = 0.6f), fontSize = 10.sp)
-        }
     }
 }

@@ -3,6 +3,8 @@ package com.somalapuram.pclauncher.feature.shell.start
 import androidx.compose.foundation.Image
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -119,6 +121,9 @@ fun StartMenu(
             // and at 96% those icons still bleed through and look like rendering ghosts. A menu
             // you can read the desktop through is the wrong trade (SRS §6.1 principle 1: the
             // user's content is what matters, and here the menu *is* the content).
+            // Above the desktop, not cut into it: a hard 1 px edge left the eye to work the
+            // boundary out from colour alone over a busy wallpaper (visual-pass.md).
+            .shadow(PanelElevation, RoundedCornerShape(PcCorners.Surface), clip = false)
             .background(colors.surface, RoundedCornerShape(PcCorners.Surface))
             .border(1.dp, colors.hairline, RoundedCornerShape(PcCorners.Surface))
             .padding(PcSpacing.Medium)
@@ -160,8 +165,12 @@ fun StartMenu(
         Text(
             text = if (query.isBlank()) "All apps" else "${filtered.size} of ${entries.size}",
             color = colors.onSurfaceMuted,
-            fontSize = 11.sp,
-            modifier = Modifier.padding(vertical = PcSpacing.Small),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 0.4.sp,
+            // Room above it so it reads as a heading over the grid rather than a caption stuck to
+            // the search field.
+            modifier = Modifier.padding(top = PcSpacing.Medium, bottom = PcSpacing.Small),
         )
 
         when {
@@ -343,3 +352,6 @@ const val StartColumns = 5
 
 /** The keyboard caret's row. Stronger than a hover, because Enter acts here. */
 private const val SelectedWash = 0.14f
+
+/** Enough to lift the panel off the wallpaper; one shadow, well inside the budget (SRS §4.3). */
+private val PanelElevation = 16.dp

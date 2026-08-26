@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -56,6 +57,7 @@ fun QuickSettingsPanel(
     Column(
         modifier = modifier
             .width(360.dp)
+            .shadow(16.dp, shape, clip = false)
             // The same treatment as the bar, so the shell reads as one material rather than a flat
             // card that happens to float over the wallpaper.
             .background(

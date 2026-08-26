@@ -36,7 +36,7 @@ fun isAvailable(action: PowerAction, privileges: PowerPrivileges): Boolean = whe
  */
 fun unavailableReason(action: PowerAction, privileges: PowerPrivileges): String? {
     if (isAvailable(action, privileges)) return null
-    return "Needs platform privilege"
+    return "Needs privilege"
 }
 
 /** The label a footer control carries. */
