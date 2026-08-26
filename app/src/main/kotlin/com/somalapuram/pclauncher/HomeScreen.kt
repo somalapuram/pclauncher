@@ -8,7 +8,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.exclude
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -158,7 +162,15 @@ fun HomeScreen(
 
     // An outer Box so the Start menu can float *over* the desktop. Putting it in the column made
     // it a sibling that squeezed the desktop upward as it opened.
-    Box(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            // Safe drawing *minus* the keyboard. Including the IME inset squeezes the whole shell
+            // into the space above it — the desktop reflows, the bar leaves the bottom edge, and
+            // the Start menu ends up floating beside a bar that has moved. A home screen does not
+            // get out of the keyboard's way; it is the screen (shell-insets.md).
+            .windowInsetsPadding(WindowInsets.safeDrawing.exclude(WindowInsets.ime)),
+    ) {
 
     Column(modifier = Modifier.fillMaxSize()) {
         Box(

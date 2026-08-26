@@ -58,6 +58,10 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 - `shell/menu-bar.md` — top bar, launcher-owned Window/View/Help menus. *Status: Planned.*
 - [`shell/bar-alignment.md`](shell/bar-alignment.md) — the dock on the bar's centre line, and an
   Android app-grid Start mark. *Status: Accepted · Implemented.*
+- [`shell/dock-magnification-fixes.md`](shell/dock-magnification-fixes.md) — hover magnifies the
+  icon under the pointer and leaves the bar’s height alone. *Status: Implemented (hover unverified).*
+- [`shell/shell-insets.md`](shell/shell-insets.md) — the on-screen keyboard does not move the
+  desktop or the bar. *Status: Accepted · Implemented.*
 - [`shell/dock-taskbar.md`](shell/dock-taskbar.md) — one bar: Start button, magnifying dock,
   taskbar window chips, Show Desktop. Rendered in the HOME activity first; the overlay service
   hosts the same composables later. *Status: Accepted · Partially implemented.*
