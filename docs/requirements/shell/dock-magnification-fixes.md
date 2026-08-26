@@ -64,5 +64,12 @@ nothing warns. This is the same shape as the widget resolver that was accepted a
   (`BarLayout.dockStartX`), so its left edge depends on the width of both neighbouring zones. Asking
   the layout where it actually put the dock is honest; recomputing the same formula in a second
   place is how the two get to disagree.
+- **The icon magnification itself is untouched.** What was removed is the *bar's* height growth and
+  the `barHeightFor` helper that sized it; `DockMagnification.scaleAt` still runs per icon at
+  `MAX_SCALE = 1.62` through the same graphics layer. A 48 dp icon is drawn at about 78 dp and rises
+  above a 56 dp bar, which is what a dock does.
+- **The scale is not time-animated, and was not before either.** It is a continuous function of
+  pointer position, so it is smooth while the pointer moves through the falloff — the only thing
+  that was ever animated here was the bar's height, and that is the part that had to go.
 - **Not in this slice:** magnification on touch (there is no hover to track), or animating the
   running indicator with the icon.

@@ -1,6 +1,5 @@
 package com.somalapuram.pclauncher.feature.shell.bar
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import com.somalapuram.pclauncher.core.design.surfaceSheen
 import androidx.compose.foundation.clickable
@@ -33,7 +32,6 @@ import androidx.compose.ui.unit.dp
 import com.somalapuram.pclauncher.core.design.LocalPcColors
 import com.somalapuram.pclauncher.core.design.LocalSurfaceTreatment
 import com.somalapuram.pclauncher.core.design.PcCorners
-import com.somalapuram.pclauncher.core.design.PcMotion
 import com.somalapuram.pclauncher.core.design.PcSize
 import com.somalapuram.pclauncher.core.design.PcSpacing
 import com.somalapuram.pclauncher.core.design.SurfaceTreatment

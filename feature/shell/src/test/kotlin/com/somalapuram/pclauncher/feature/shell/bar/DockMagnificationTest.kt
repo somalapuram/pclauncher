@@ -98,13 +98,6 @@ class DockMagnificationTest {
         assertTrue("expected a usable index just outside the dock", index != null)
     }
 
-    @Test
-    fun `the bar grows enough to contain a magnified icon`() {
-        val base = 56f
-        val grown = DockMagnification.barHeightFor(baseHeight = base, iconSize = 40f)
-        assertTrue("bar must grow, was $grown", grown > base)
-    }
-
     // --- the origin actually being supplied ---------------------------------------------------
 
     @Test
