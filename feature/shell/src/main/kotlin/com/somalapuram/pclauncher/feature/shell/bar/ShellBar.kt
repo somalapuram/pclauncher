@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
@@ -133,7 +134,13 @@ fun ShellBar(
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent()
-                        pointerX = event.changes.lastOrNull()?.position?.x
+                        // An Exit carries a position like every other event, so assigning it
+                        // blindly recorded one last coordinate and then went quiet — leaving the
+                        // icon under it enlarged for good (pointer-follow-through.md).
+                        pointerX = pointerXFor(
+                            isExit = event.type == PointerEventType.Exit,
+                            position = event.changes.lastOrNull()?.position?.x,
+                        )
                     }
                 }
             },
@@ -226,3 +233,11 @@ private fun ShowDesktopHandle(onClick: () -> Unit, modifier: Modifier = Modifier
     )
 }
 
+/**
+ * The pointer position the dock should magnify around, or null for "gone".
+ *
+ * Pulled out because the mistake it prevents is not visible at the call site: every pointer event
+ * carries a position, including the one that says the pointer has left, so a loop that just takes
+ * the latest coordinate cannot tell "here" from "leaving here".
+ */
+fun pointerXFor(isExit: Boolean, position: Float?): Float? = if (isExit) null else position

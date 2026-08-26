@@ -32,10 +32,20 @@ fun HostedWidget(
 ) {
     val colors = LocalPcColors.current
 
-    Box(
-        modifier = modifier
+    // Only the placeholder is framed. Widgets are designed to sit on a wallpaper — they bring
+    // their own background, corners and padding — so a frame of ours is a second, competing edge
+    // around every one of them. "Widget unavailable" with no ground under it, on the other hand,
+    // reads as a rendering fault rather than a message (widget-chrome.md).
+    val chrome = if (needsChrome(view != null)) {
+        Modifier
             .background(colors.scrim.copy(alpha = 0.25f), RoundedCornerShape(PcCorners.Surface))
-            .border(1.dp, colors.hairline, RoundedCornerShape(PcCorners.Surface)),
+            .border(1.dp, colors.hairline, RoundedCornerShape(PcCorners.Surface))
+    } else {
+        Modifier
+    }
+
+    Box(
+        modifier = modifier.then(chrome),
         contentAlignment = Alignment.Center,
     ) {
         if (view == null) {
@@ -52,3 +62,6 @@ fun HostedWidget(
         }
     }
 }
+
+/** Whether the host draws a frame. Only the placeholder needs one. */
+fun needsChrome(hasView: Boolean): Boolean = !hasView

@@ -58,6 +58,8 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 - `shell/menu-bar.md` — top bar, launcher-owned Window/View/Help menus. *Status: Planned.*
 - [`shell/bar-alignment.md`](shell/bar-alignment.md) — the dock on the bar's centre line, and an
   Android app-grid Start mark. *Status: Accepted · Implemented.*
+- [`shell/pointer-follow-through.md`](shell/pointer-follow-through.md) — magnification lets go when
+  the pointer leaves, and the drag ghost sits under it. *Status: Implemented (hover unverified).*
 - [`shell/dock-magnification-fixes.md`](shell/dock-magnification-fixes.md) — hover magnifies the
   icon under the pointer and leaves the bar’s height alone. *Status: Implemented (hover unverified).*
 - [`shell/shell-insets.md`](shell/shell-insets.md) — the on-screen keyboard does not move the
@@ -95,6 +97,8 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
   snapping its corner and refusing a drop that would overlap. *Status: Accepted · Implemented.*
 - [`desktop/widget-removal.md`](desktop/widget-removal.md) — a context menu on a widget, carrying
   Remove widget, and the id release that goes with it. *Status: Accepted · Implemented.*
+- [`desktop/widget-chrome.md`](desktop/widget-chrome.md) — a hosted widget draws itself, without a
+  box of ours around it. *Status: Accepted · Implemented.*
 - [`desktop/widget-host.md`](desktop/widget-host.md) — `AppWidgetHost` inside Compose, binding and
   id lifecycle. *Status: Accepted · Implemented (removal pending).*
 

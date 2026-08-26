@@ -26,6 +26,15 @@ fun DragGhost(
     iconFor: (com.somalapuram.pclauncher.core.apps.AppEntry) -> android.graphics.drawable.Drawable?,
     modifier: Modifier = Modifier,
     size: androidx.compose.ui.unit.Dp = 56.dp,
+    /**
+     * Where this ghost's own coordinate space begins, in root coordinates.
+     *
+     * Drag positions are recorded in root space, but the ghost is drawn inside the shell's inset
+     * box — so without this it renders low and right by exactly the window's safe-drawing inset.
+     * Passed in rather than inferred, so rearranging the layout cannot quietly reintroduce the
+     * offset (pointer-follow-through.md).
+     */
+    spaceOriginInRoot: androidx.compose.ui.geometry.Offset = androidx.compose.ui.geometry.Offset.Zero,
 ) {
     val entry = drag.entry ?: return
     val painter = bitmapPainterFor(iconFor(entry)) ?: return
@@ -33,7 +42,10 @@ fun DragGhost(
 
     Box(
         modifier = modifier
-            .offset { IntOffset((drag.position.x - halfPx).roundToInt(), (drag.position.y - halfPx).roundToInt()) }
+            .offset {
+                val at = ghostTopLeft(drag.position, spaceOriginInRoot, halfPx)
+                IntOffset(at.x.roundToInt(), at.y.roundToInt())
+            }
             .size(size)
             // Slightly transparent and lifted, so it reads as being carried rather than dropped.
             .alpha(0.85f)
@@ -42,3 +54,18 @@ fun DragGhost(
         Image(painter = painter, contentDescription = null, modifier = Modifier.size(size))
     }
 }
+
+/**
+ * Where the ghost's top-left goes so its centre sits under the pointer.
+ *
+ * Two corrections, and both were needed: back out of root space into the space the ghost is drawn
+ * in, then step back by half the ghost so it is centred rather than hanging off the pointer.
+ */
+fun ghostTopLeft(
+    pointerInRoot: androidx.compose.ui.geometry.Offset,
+    spaceOriginInRoot: androidx.compose.ui.geometry.Offset,
+    half: Float,
+): androidx.compose.ui.geometry.Offset = androidx.compose.ui.geometry.Offset(
+    x = pointerInRoot.x - spaceOriginInRoot.x - half,
+    y = pointerInRoot.y - spaceOriginInRoot.y - half,
+)

@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.ime
@@ -132,6 +134,7 @@ fun HomeScreen(
     // One drag, shared. The desktop starts drags the bar has to answer and vice versa, so a single
     // value is the only version that cannot disagree with itself (direct-manipulation.md).
     val drag = remember { DragState() }
+    var shellOriginInRoot by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
     var barTopY by remember { mutableStateOf(Float.MAX_VALUE) }
     var barBottomY by remember { mutableStateOf(Float.MAX_VALUE) }
 
@@ -169,7 +172,10 @@ fun HomeScreen(
             // into the space above it — the desktop reflows, the bar leaves the bottom edge, and
             // the Start menu ends up floating beside a bar that has moved. A home screen does not
             // get out of the keyboard's way; it is the screen (shell-insets.md).
-            .windowInsetsPadding(WindowInsets.safeDrawing.exclude(WindowInsets.ime)),
+            .windowInsetsPadding(WindowInsets.safeDrawing.exclude(WindowInsets.ime))
+            // Drag positions are in root coordinates; this box is inset from the root. The ghost
+            // needs the difference or it trails the pointer by exactly the inset.
+            .onGloballyPositioned { shellOriginInRoot = it.positionInRoot() },
     ) {
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -259,7 +265,7 @@ fun HomeScreen(
     }
 
     if (drag.isActive) {
-        DragGhost(drag = drag, iconFor = iconFor)
+        DragGhost(drag = drag, iconFor = iconFor, spaceOriginInRoot = shellOriginInRoot)
     }
 
     if (widgetPickerOpen) {
