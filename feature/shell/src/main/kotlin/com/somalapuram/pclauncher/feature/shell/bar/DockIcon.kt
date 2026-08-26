@@ -57,7 +57,9 @@ fun DockIcon(
 
     Box(
         modifier = modifier
-            .size(PcSize.MinTouchTarget)
+            // Whichever is larger: the touch minimum is a floor, not a ceiling, and an icon drawn
+            // bigger than its own box would simply be clipped by it.
+            .size(maxOf(PcSize.MinTouchTarget, iconSize))
             .onGloballyPositioned { originInRoot = it.positionInRoot() }
             .appItemGestures(
                 key = item.id,
@@ -74,7 +76,9 @@ fun DockIcon(
                     if (!item.isAvailable) append(", unavailable")
                 }
             },
-        contentAlignment = Alignment.BottomCenter,
+        // The icon is centred in its touch target and the running indicator is pinned to the
+        // bottom, so an app that starts running does not shift its own icon (bar-alignment.md).
+        contentAlignment = Alignment.Center,
     ) {
         Box(
             modifier = Modifier
@@ -108,11 +112,10 @@ fun DockIcon(
         if (item.isRunning) {
             Box(
                 Modifier
+                    .align(Alignment.BottomCenter)
                     .size(width = if (item.isFocused) 14.dp else 4.dp, height = 3.dp)
                     .background(colors.accent, RoundedCornerShape(50)),
             )
-        } else {
-            Spacer(Modifier.size(3.dp))
         }
     }
 }

@@ -16,11 +16,16 @@ import androidx.compose.ui.unit.dp
 object PcGlyphs {
 
     /**
-     * The Start glyph: four panes, with the top-left one detached.
+     * The Start glyph: a three-by-three grid of dots.
      *
-     * A nod to the Windows four-pane Start without copying it — the offset pane is what makes it
-     * pclauncher's mark rather than a clone, and it reads at 20 dp, which a more detailed logo
-     * would not.
+     * Was four panes with one detached, described here as "a nod to the Windows four-pane Start
+     * without copying it". On a device that *is* Android, running Android apps, the nod reads as
+     * the wrong operating system, and SRS §1 asks for something that feels like a copy of neither
+     * desktop. The Windows *organisation* — a Start button at the left opening a searchable menu
+     * (§6.4) — is unchanged; only the mark is.
+     *
+     * A dot grid is the app-drawer mark Android launchers have used for a decade, and it survives
+     * being drawn at 20 dp, which a robot silhouette or anything finer would not.
      */
     val Start: ImageVector by lazy {
         ImageVector.Builder(
@@ -30,34 +35,19 @@ object PcGlyphs {
             viewportWidth = 24f,
             viewportHeight = 24f,
         ).apply {
-            // Detached pane, lifted and rotated slightly by being drawn a shade smaller.
-            path(fill = SolidColor(Color.White)) {
-                moveTo(3.2f, 4.6f)
-                lineTo(9.6f, 3.2f)
-                lineTo(9.6f, 10.4f)
-                lineTo(3.2f, 10.4f)
-                close()
-            }
-            path(fill = SolidColor(Color.White)) {
-                moveTo(12.4f, 3.2f)
-                lineTo(20.8f, 3.2f)
-                lineTo(20.8f, 10.4f)
-                lineTo(12.4f, 10.4f)
-                close()
-            }
-            path(fill = SolidColor(Color.White)) {
-                moveTo(3.2f, 13.2f)
-                lineTo(9.6f, 13.2f)
-                lineTo(9.6f, 20.4f)
-                lineTo(3.2f, 20.4f)
-                close()
-            }
-            path(fill = SolidColor(Color.White)) {
-                moveTo(12.4f, 13.2f)
-                lineTo(20.8f, 13.2f)
-                lineTo(20.8f, 20.8f)
-                lineTo(12.4f, 19.4f)
-                close()
+            val centres = listOf(6f, 12f, 18f)
+            val radius = 2.15f
+            centres.forEach { cy ->
+                centres.forEach { cx ->
+                    path(fill = SolidColor(Color.White)) {
+                        // Two half-arcs rather than a circle primitive: the vector builder has no
+                        // circle, and four quadratics drift visibly at this size.
+                        moveTo(cx - radius, cy)
+                        arcToRelative(radius, radius, 0f, true, true, radius * 2f, 0f)
+                        arcToRelative(radius, radius, 0f, true, true, -radius * 2f, 0f)
+                        close()
+                    }
+                }
             }
         }.build()
     }

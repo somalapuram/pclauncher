@@ -149,13 +149,18 @@ fun ShellBar(
         // The dock is centred on the screen, not on the leftover space, so it does not drift left
         // as windows open (BarLayout.dockStartX).
         Box(
-            modifier = Modifier.weight(1f),
-            contentAlignment = Alignment.BottomCenter,
+            // `weight` sizes the width; without an explicit alignment this box still takes the
+            // Row's `Alignment.Bottom` and its content-sized height rides the bar's lower edge.
+            modifier = Modifier.weight(1f).align(Alignment.CenterVertically),
+            // Centred like everything else in the bar. Bottom alignment used to be here for
+            // magnification's sake, but magnification is a `graphicsLayer` transform — a draw-time
+            // effect that is independent of where layout rests the icon (bar-alignment.md).
+            contentAlignment = Alignment.Center,
         ) {
             Row(
                 modifier = Modifier.onSizeChanged { /* origin captured below via position */ },
                 horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.Bottom,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 state.dockItems.forEachIndexed { index, item ->
                     DockIcon(

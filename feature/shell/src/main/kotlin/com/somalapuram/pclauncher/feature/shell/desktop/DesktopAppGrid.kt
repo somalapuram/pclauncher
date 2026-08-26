@@ -272,8 +272,12 @@ private fun DesktopIcon(
         ) {
             Box(modifier = Modifier.alpha(if (entry.isLaunchable) 1f else 0.4f)) {
                 bitmapPainterFor(painter)?.let {
-                    Image(painter = it, contentDescription = null, modifier = Modifier.size(52.dp))
-                } ?: Box(Modifier.size(52.dp))
+                    Image(
+                        painter = it,
+                        contentDescription = null,
+                        modifier = Modifier.size(PcSize.DesktopIcon),
+                    )
+                } ?: Box(Modifier.size(PcSize.DesktopIcon))
             }
 
             Text(
