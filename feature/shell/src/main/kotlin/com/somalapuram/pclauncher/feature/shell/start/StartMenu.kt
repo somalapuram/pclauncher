@@ -77,7 +77,7 @@ fun StartMenu(
     onDismiss: () -> Unit,
     iconFor: (AppEntry) -> android.graphics.drawable.Drawable?,
     modifier: Modifier = Modifier,
-    deviceName: String = "",
+    deviceName: String? = null,
     /** What the shell is allowed to do to the device, read at runtime (start-power.md). */
     powerPrivileges: PowerPrivileges = PowerPrivileges(),
     onPowerAction: (PowerAction) -> Unit = {},

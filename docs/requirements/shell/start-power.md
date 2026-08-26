@@ -58,7 +58,9 @@ has got into a bad state, and it is the one power-ish thing that has always been
 Checked on the `Pixel_Tablet` AVD, where neither privilege is held — so the disabled path is the one
 exercised, and the enabled path is covered by tests.
 
-- [x] The footer renders four actions and the device name (`sdk_gphone16k_x86_64`).
+- [x] The footer renders the actions and, where there is one, the device name. On this emulator
+      every source returns the build identifier `sdk_gphone16k_x86_64`, so the slot is empty —
+      see below.
 - [x] Settings opens the system settings (`SettingsHomepageActivity`).
 - [x] Restart shell restarts the launcher: the process id changed and the desktop came back on its
       own, with Settings still in the back stack.
@@ -79,6 +81,13 @@ exercised, and the enabled path is covered by tests.
 front — the desktop did not return until the user pressed HOME. A home screen that does not come
 back is exactly what GATE 4 forbids. Starting the home activity before exiting makes the system
 relaunch it, which was confirmed with another app in the stack.
+
+**The device name is shown only when it is a name.** SRS §6.4 asks for it, and on real hardware
+`Settings.Global.DEVICE_NAME` holds what the user set — the name Bluetooth and Nearby show. An
+emulator or an un-named build returns a build identifier instead, and `sdk_gphone16k_x86_64` in a
+footer reads as debug text someone forgot to remove. The slot now shows a name or nothing, and the
+model only stands in when no name has been set. On `aosp-pc-x86_64` it will appear as soon as the
+device is given a name.
 
 ## Notes
 

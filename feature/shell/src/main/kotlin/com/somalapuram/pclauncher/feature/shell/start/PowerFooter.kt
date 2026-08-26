@@ -43,7 +43,7 @@ import com.somalapuram.pclauncher.core.design.PcSpacing
  */
 @Composable
 fun PowerFooter(
-    deviceName: String,
+    deviceName: String?,
     privileges: PowerPrivileges,
     onAction: (PowerAction) -> Unit,
     modifier: Modifier = Modifier,
@@ -58,8 +58,10 @@ fun PowerFooter(
         horizontalArrangement = Arrangement.spacedBy(PcSpacing.ExtraSmall),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // A name or nothing: an un-named build returns its build identifier, and
+        // `sdk_gphone16k_x86_64` in a footer reads as debug text left in by mistake.
         Text(
-            text = deviceName,
+            text = deviceName.orEmpty(),
             color = colors.onSurfaceMuted,
             fontSize = 12.sp,
             modifier = Modifier.weight(1f),

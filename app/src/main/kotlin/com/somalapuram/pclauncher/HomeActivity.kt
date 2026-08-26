@@ -147,7 +147,17 @@ class HomeActivity : ComponentActivity() {
                     onReportWidgetSize = { id, widthDp, heightDp ->
                         widgets?.applySize(id, widthDp, heightDp)
                     },
-                    deviceName = android.os.Build.MODEL ?: "",
+                    deviceName = com.somalapuram.pclauncher.feature.shell.start.displayableDeviceName(
+                        // The name the user actually set — what Bluetooth and Nearby show. The
+                        // model only stands in when nothing has been set.
+                        deviceName = runCatching {
+                            android.provider.Settings.Global.getString(
+                                contentResolver,
+                                android.provider.Settings.Global.DEVICE_NAME,
+                            )
+                        }.getOrNull(),
+                        model = android.os.Build.MODEL,
+                    ),
                     powerPrivileges = com.somalapuram.pclauncher.power.powerPrivilegesOf(this),
                     onPowerAction = { action ->
                         com.somalapuram.pclauncher.power.performPowerAction(this, action)
