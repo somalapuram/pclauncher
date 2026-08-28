@@ -36,6 +36,7 @@ import com.somalapuram.pclauncher.core.data.layout.ResizeEdge
 import com.somalapuram.pclauncher.core.data.layout.ResizePermission
 import com.somalapuram.pclauncher.core.data.layout.cellAfterDrag
 import com.somalapuram.pclauncher.core.data.layout.widgetSizeDp
+import com.somalapuram.pclauncher.core.design.PcMenu
 import com.somalapuram.pclauncher.core.design.LocalPcColors
 import com.somalapuram.pclauncher.core.design.PcCorners
 import com.somalapuram.pclauncher.core.design.PcHover
@@ -175,7 +176,7 @@ fun DesktopWidget(
             )
         }
 
-        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+        PcMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
             // Offered only where it would do something: a RESIZE_NONE widget still needs a menu,
             // because it still needs removing (widget-removal.md requirement 3).
             if (permission.isResizable) {

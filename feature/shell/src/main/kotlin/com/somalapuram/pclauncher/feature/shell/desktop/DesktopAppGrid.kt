@@ -53,6 +53,7 @@ import com.somalapuram.pclauncher.core.data.layout.ResizeEdge
 import com.somalapuram.pclauncher.core.data.layout.ResizePermission
 import com.somalapuram.pclauncher.feature.shell.widget.HostedWidget
 import com.somalapuram.pclauncher.feature.shell.widget.WidgetResizeFrame
+import com.somalapuram.pclauncher.core.design.PcMenu
 import com.somalapuram.pclauncher.core.design.LocalPcColors
 import com.somalapuram.pclauncher.core.design.PcCorners
 import com.somalapuram.pclauncher.core.design.labelShadowFor
@@ -151,8 +152,10 @@ fun DesktopAppGrid(
             .fillMaxSize()
             .padding(PcSpacing.Large)
             .onGloballyPositioned {
-                heightPx = it.size.height
-                widthPx = it.size.width
+                // Same reasoning as the row count: a zero-sized measurement is not information
+                // about the grid, and acting on it throws away an arrangement that was correct.
+                if (it.size.height > 0) heightPx = it.size.height
+                if (it.size.width > 0) widthPx = it.size.width
                 originInRoot = it.positionInRoot()
                 // Derived from the size just measured, not from `rows` — that was computed during
                 // this composition, from the height *before* this measurement, so reporting it
@@ -182,7 +185,7 @@ fun DesktopAppGrid(
                 },
             ),
     ) {
-        DropdownMenu(
+        PcMenu(
             expanded = desktopMenuOpen,
             onDismissRequest = { desktopMenuOpen = false },
             offset = with(density) { DpOffset(menuAt.x.toDp(), menuAt.y.toDp()) },
@@ -356,7 +359,7 @@ private fun DesktopIcon(
             )
         }
 
-        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+        PcMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
             DropdownMenuItem(
                 text = { Text(if (isPinned) "Unpin from taskbar" else "Pin to taskbar") },
                 onClick = { onTogglePin(); menuOpen = false },

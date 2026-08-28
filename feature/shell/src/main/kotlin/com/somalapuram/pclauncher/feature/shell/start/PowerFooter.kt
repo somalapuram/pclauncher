@@ -27,6 +27,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.somalapuram.pclauncher.core.design.PcMenu
 import com.somalapuram.pclauncher.core.design.LocalPcColors
 import com.somalapuram.pclauncher.core.design.PcGlyphs
 import com.somalapuram.pclauncher.core.design.PcSpacing
@@ -80,7 +81,7 @@ fun PowerFooter(
                 onClick = { powerMenuOpen = true },
             )
 
-            DropdownMenu(
+            PcMenu(
                 expanded = powerMenuOpen,
                 onDismissRequest = { powerMenuOpen = false },
             ) {

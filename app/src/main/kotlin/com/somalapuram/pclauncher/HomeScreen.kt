@@ -218,7 +218,11 @@ fun HomeScreen(
                     onReportWidgetSize = onReportWidgetSize,
                     layout = effectiveLayout,
                     onGridMetrics = { w, h, rows, origin, widthPx ->
-                        cellW = w; cellH = h; gridRows = rows
+                        cellW = w; cellH = h
+                        // A zero row count is the absence of a measurement, not news. Taking it
+                        // blanked every auto-placed icon for a frame, which is the flicker that
+                        // replaced the reflow (context-menu.md).
+                        if (rows > 0) gridRows = rows
                         desktopOrigin = origin; desktopWidthPx = widthPx
                     },
                 )

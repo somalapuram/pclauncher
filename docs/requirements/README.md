@@ -70,6 +70,8 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
   icon under the pointer and leaves the bar’s height alone. *Status: Implemented (hover unverified).*
 - [`shell/shell-insets.md`](shell/shell-insets.md) — the on-screen keyboard does not move the
   desktop or the bar. *Status: Accepted · Implemented.*
+- [`shell/context-menu.md`](shell/context-menu.md) — menus that disturb nothing and match the
+  shell's surfaces. *Status: Accepted · Implemented.*
 - [`shell/dock-taskbar.md`](shell/dock-taskbar.md) — one bar: Start button, magnifying dock,
   taskbar window chips, Show Desktop. Rendered in the HOME activity first; the overlay service
   hosts the same composables later. *Status: Accepted · Partially implemented.*
