@@ -99,6 +99,8 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 ### desktop
 - [`desktop/icon-size.md`](desktop/icon-size.md) — icons drawn large enough to fill their cells,
   and the reserved-margin fraction that made them small. *Status: Accepted · Implemented.*
+- [`desktop/drag-origin.md`](desktop/drag-origin.md) — a drag reports the pointer's position, not
+  the grid's corner. *Status: Accepted · Implemented.*
 - [`desktop/icon-grid.md`](desktop/icon-grid.md) — persisted icon cells, drag-to-arrange, and the
   desktop’s own context menu (wallpaper, add widget). *Status: Accepted · Implemented.*
 - [`desktop/widget-resize.md`](desktop/widget-resize.md) — long-press a widget to resize it by

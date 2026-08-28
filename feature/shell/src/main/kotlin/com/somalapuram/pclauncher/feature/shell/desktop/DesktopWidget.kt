@@ -242,11 +242,13 @@ private fun Modifier.widgetGestures(
                 while (true) {
                     val event = awaitPointerEvent(PointerEventPass.Initial)
                     val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                    if (!change.pressed) break
                     // Read the delta before consuming: a consumed change reports no movement.
+                    // The release carries movement too, so it is applied before breaking rather
+                    // than discarded — otherwise the drop is one event short of the pointer.
                     val delta = change.positionChange()
                     change.consume()
                     onDrag(delta)
+                    if (!change.pressed) break
                 }
                 onDragEnd()
             }

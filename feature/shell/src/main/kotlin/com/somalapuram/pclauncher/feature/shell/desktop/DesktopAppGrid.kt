@@ -230,7 +230,11 @@ fun DesktopAppGrid(
                 painter = iconFor(entry),
                 onLaunch = { onLaunch(entry) },
                 onTogglePin = { onTogglePin(entry) },
-                onDragStart = { local -> onDragStart(entry, originInRoot + local) },
+                // Passed straight through: the icon reports its own root position, because it is
+                // the only participant that knows where it is. Adding the *grid's* origin here
+                // dropped the icon's cell offset and put every drag near the grid's corner
+                // (drag-origin.md).
+                onDragStart = { at -> onDragStart(entry, at) },
                 onDrag = onDrag,
                 onDragEnd = onDragEnd,
                 modifier = Modifier
@@ -288,7 +292,11 @@ private fun DesktopIcon(
                     dragRequiresLongPress = false,
                     onClick = onLaunch,
                     onContextMenu = { _ -> menuOpen = true },
-                    onDragStart = { local -> onDragStart(local) },
+                    // Its own origin, not the caller's: this is the value that says *which* icon
+                    // is being dragged.
+                    // Its own origin, not the caller's: this is the value that says *which* icon
+                    // is being dragged.
+                    onDragStart = { local -> onDragStart(originInRoot + local) },
                     onDrag = onDrag,
                     onDragEnd = onDragEnd,
                 )

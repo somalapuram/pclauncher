@@ -166,7 +166,18 @@ private suspend fun AwaitPointerEventScope.trackImmediateDrag(
     var dragging = false
     while (true) {
         val change = awaitPointerEvent().changes.firstOrNull { it.id == id } ?: return dragging
-        if (!change.pressed) return dragging
+
+        // The release carries movement too, and dropping it left every drag one event short of
+        // where the pointer actually finished — a sixth of the distance on a quick drag, which
+        // lands the icon in the wrong cell (drag-origin.md).
+        if (!change.pressed) {
+            if (dragging) {
+                val last = change.positionChange()
+                change.consume()
+                onDrag(last)
+            }
+            return dragging
+        }
 
         // Read the delta *before* consuming: positionChange() reports zero once a change is
         // consumed, so consuming first silently turns every drag into a stationary one.
