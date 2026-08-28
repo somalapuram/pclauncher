@@ -132,6 +132,50 @@ class DesktopLayoutTest {
         assertTrue(DesktopLayoutCodec.decode(null).placements.isEmpty())
         assertTrue(DesktopLayoutCodec.decode("  ").placements.isEmpty())
     }
+    // --- placing before the grid is measured ---------------------------------------------------
+
+    @Test
+    fun `an unknown row count places nothing`() {
+        // Icons visibly arranged horizontally and then vertically: until the desktop is measured
+        // the row count was coerced to 1, and one row per column *is* a horizontal arrangement.
+        val placed = withAutoPlacement(DesktopLayout(), listOf("a", "b", "c"), rowsPerColumn = 0)
+
+        assertEquals(emptyList<DesktopPlacement>(), placed.placements)
+    }
+
+    @Test
+    fun `a negative row count places nothing either`() {
+        assertEquals(
+            emptyList<DesktopPlacement>(),
+            withAutoPlacement(DesktopLayout(), listOf("a"), rowsPerColumn = -3).placements,
+        )
+    }
+
+    @Test
+    fun `one row per column really is a horizontal arrangement`() {
+        // The shape the bug produced, kept as evidence of why zero cannot be coerced to one.
+        val placed = withAutoPlacement(DesktopLayout(), listOf("a", "b", "c"), rowsPerColumn = 1)
+
+        assertEquals(listOf(0, 1, 2), placed.placements.map { it.cell.column })
+        assertEquals(listOf(0, 0, 0), placed.placements.map { it.cell.row })
+    }
+
+    @Test
+    fun `a measured grid arranges down the column first`() {
+        val placed = withAutoPlacement(DesktopLayout(), listOf("a", "b", "c"), rowsPerColumn = 2)
+
+        assertEquals(listOf(0, 0, 1), placed.placements.map { it.cell.column })
+        assertEquals(listOf(0, 1, 0), placed.placements.map { it.cell.row })
+    }
+
+    @Test
+    fun `stored placements survive an unmeasured grid`() {
+        // Only icons that have never been placed are affected; the user's own arrangement is not.
+        val stored = DesktopLayout(listOf(DesktopPlacement("a", DesktopCell(4, 2))))
+
+        assertEquals(stored, withAutoPlacement(stored, listOf("a"), rowsPerColumn = 0))
+    }
+
 }
 
 /** Spans, added by widget-resize.md. Icons stay 1×1, so the old behaviour must be untouched. */

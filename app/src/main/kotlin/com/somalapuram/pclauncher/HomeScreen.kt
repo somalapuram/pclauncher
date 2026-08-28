@@ -121,7 +121,8 @@ fun HomeScreen(
     // Reported by the desktop once it has measured, so a drop can be turned into a cell.
     var cellW by remember { mutableStateOf(0f) }
     var cellH by remember { mutableStateOf(0f) }
-    var gridRows by remember { mutableStateOf(1) }
+    // Zero until the desktop reports its measured height. Placement waits for it.
+    var gridRows by remember { mutableStateOf(0) }
     // Auto-placement happens once, here, so the desktop and anything looking for a free cell agree
     // about what is occupied. Computed in the same column-major order the flowing grid used.
     val effectiveLayout = remember(apps, layout, gridRows) {
