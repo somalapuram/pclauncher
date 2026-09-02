@@ -15,7 +15,7 @@ import org.junit.Test
 class WallpaperChromeTest {
 
     @Test
-    fun `a wallpaper that supports dark text gets light chrome`() {
+    fun `a wallpaper that supports dark text and reports no colours gets light chrome`() {
         val tone = WallpaperTone(supportsDarkText = true)
 
         assertFalse(chromeIsDark(tone, systemDark = false))
@@ -24,7 +24,7 @@ class WallpaperChromeTest {
     }
 
     @Test
-    fun `a wallpaper that does not support dark text gets dark chrome`() {
+    fun `a wallpaper without dark-text support and no colours gets dark chrome`() {
         val tone = WallpaperTone(supportsDarkText = false)
 
         assertTrue(chromeIsDark(tone, systemDark = false))
@@ -32,21 +32,58 @@ class WallpaperChromeTest {
     }
 
     @Test
-    fun `without a hint the dominant colour decides`() {
+    fun `the dominant colour decides when it is all there is`() {
         assertTrue(chromeIsDark(WallpaperTone(dominant = Color(0xFF101014)), systemDark = false))
         assertFalse(chromeIsDark(WallpaperTone(dominant = Color(0xFFF2F1EC)), systemDark = true))
     }
 
+    /**
+     * The reverse of what this file used to assert, and the reversal is the point.
+     *
+     * The hint used to outrank the colours, on the argument that a mostly-light wallpaper can still
+     * be dark where the bar goes. The measured counter-example is this wallpaper: `hints=4`, no
+     * dark-text support, reported colours `#b88545` `#cdb68b` `#f0f1f2` — all light — and 180–208
+     * of 255 measured behind the desktop labels. Following the hint put white text on a pale ground
+     * (wallpaper-theme-alignment.md).
+     */
     @Test
-    fun `the hint outranks the dominant colour`() {
-        // A mostly-light wallpaper can still be dark where the bar goes; the platform's hint sees
-        // that and a single colour cannot.
-        val lightColourDarkHint = WallpaperTone(
+    fun `the colours outrank the hint`() {
+        val paleWallpaperWithNoDarkTextHint = WallpaperTone(
             supportsDarkText = false,
-            dominant = Color(0xFFF2F1EC),
+            dominant = Color(0xFFB88545),
+            palette = listOf(Color(0xFFCDB68B), Color(0xFFF0F1F2)),
         )
 
-        assertTrue(chromeIsDark(lightColourDarkHint, systemDark = false))
+        assertFalse(chromeIsDark(paleWallpaperWithNoDarkTextHint, systemDark = true))
+    }
+
+    @Test
+    fun `a dark wallpaper stays dark whatever the hint says`() {
+        val dark = WallpaperTone(
+            supportsDarkText = true,
+            dominant = Color(0xFF101318),
+            palette = listOf(Color(0xFF1A2230), Color(0xFF20303F)),
+        )
+
+        assertTrue(chromeIsDark(dark, systemDark = false))
+    }
+
+    /** The mean, so one large mid-tone feature cannot speak for a pale picture. */
+    @Test
+    fun `pale surrounds outvote a mid-tone dominant`() {
+        val tone = WallpaperTone(
+            dominant = Color(0xFF8A8A8A),
+            palette = listOf(Color(0xFFF2F2F2), Color(0xFFEDEDED)),
+        )
+
+        assertFalse(chromeIsDark(tone, systemDark = true))
+    }
+
+    /** The hint is still the answer when it is the only thing the wallpaper reported. */
+    @Test
+    fun `a hint without colours still decides`() {
+        assertTrue(chromeIsDark(WallpaperTone(supportsDarkText = false), systemDark = false))
+        assertFalse(chromeIsDark(WallpaperTone(supportsDarkText = true), systemDark = true))
     }
 
     @Test

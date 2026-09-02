@@ -59,6 +59,15 @@ data class IconStyle(
      */
     val innerShade: Color,
     val innerShadeStop: Float,
+    /**
+     * The lightest a tile may be, as relative luminance. 1 disables the ceiling.
+     *
+     * The tile is the app's colour blended into the style's base, which leaves nothing to separate
+     * a *white* app's tile from a white base — and a pale glyph then has no ground. The ceiling
+     * catches only the tiles that come out too light; everything below it keeps the colour it was
+     * tuned to (white-icon-tiles.md).
+     */
+    val maxTileLuminance: Float,
     /** Inset of an adaptive icon's foreground inside the tile. */
     val adaptiveInset: Float,
     /**
@@ -103,6 +112,8 @@ data class IconStyle(
             shadow = Color(0x8C000000),
             shadowRadiusFraction = 0.07f,
             shadowOffsetFraction = 0.04f,
+            // No ceiling: these tiles are near-black, and the question does not arise.
+            maxTileLuminance = 1f,
             adaptiveInset = 0.14f,
             adaptiveForegroundScale = 1.5f,
             legacyInset = 0.17f,
@@ -128,7 +139,11 @@ data class IconStyle(
             specular = Color(0xD9FFFFFF),
             specularStop = 0.24f,
             glowAlpha = 0.30f,
-            glowRadiusFraction = 0.10f,
+            // Traded down to pay for the shadow's radius below. The room outside the tile is
+            // shared — shadow radius + shadow offset + glow radius — and spending more of it
+            // shrinks the tile, which `VisibleTileTest` exists to catch. A coloured halo around a
+            // near-white tile on a near-white panel was the least of the three doing useful work.
+            glowRadiusFraction = 0.060f,
             // The stop is a fraction of the whole bitmap, and the tile is inset inside it to
             // leave room for the shadow and glow — so a stop under ~0.5 dies before the diagonal
             // reaches the tile at all. 0.46 measured as no sheen whatsoever.
@@ -136,9 +151,24 @@ data class IconStyle(
             glazeStop = 0.80f,
             innerShade = Color(0x66324055),
             innerShadeStop = 0.58f,
-            shadow = Color(0x3D000000),
-            shadowRadiusFraction = 0.090f,
+            // The only thing separating a white tile from a white panel.
+            //
+            // The dark style is separated by its rim — a bright edge on a near-black tile. On white
+            // clay the rim is white on white and contributes nothing, so the shadow carries it
+            // alone, and at 24% black it did not: a profile through a Clock tile ran 250, 249, 248,
+            // 247, 241 and straight back to 250, with no band beneath it at all. The reference this
+            // style is drawn from puts a clear band at about 220 under a tile on a 246 ground
+            // (light-icon-separation.md).
+            //
+            // Cooled rather than pure black: the reference's shadows carry the ground's blue, and
+            // neutral black under a pastel tile reads as grime.
+            shadow = Color(0x8C1B2436),
+            shadowRadiusFraction = 0.130f,
             shadowOffsetFraction = 0.050f,
+            // sRGB ~224 against a panel at 250 — the separation the rest of the set already has.
+            // Clock's tile measured 235 before this, the palest of the set and the one whose glyph
+            // is white.
+            maxTileLuminance = 0.75f,
             adaptiveInset = 0.15f,
             adaptiveForegroundScale = 1.5f,
             legacyInset = 0.19f,
@@ -154,7 +184,7 @@ data class IconStyle(
          * The composited bitmap is cached on disk under this, so a style change without a bump
          * serves every existing install the old artwork for good.
          */
-        const val TREATMENT_VERSION = 5
+        const val TREATMENT_VERSION = 7
     }
 }
 

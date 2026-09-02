@@ -100,9 +100,15 @@ class IconGlossTest {
         val red = composite(IconStyle.SoftClay, glyph = AndroidColor.rgb(200, 40, 40))
         val blue = composite(IconStyle.SoftClay, glyph = AndroidColor.rgb(40, 40, 200))
 
-        // Sampled in the corner, which the glyph's inset leaves as tile rather than artwork.
-        val redCorner = red.getPixel((size * 0.12f).toInt(), (size * 0.5f).toInt())
-        val blueCorner = blue.getPixel((size * 0.12f).toInt(), (size * 0.5f).toInt())
+        // Sampled just inside the tile's left edge: far enough in to be tile rather than the
+        // shadow and glow outside it, far enough out to be clear of the glyph.
+        //
+        // This used to sample at 0.12, which is outside the tile altogether — the compositor
+        // reserves 24% of the box on every side for the shadow and glow. What it actually measured
+        // there was the *glow*, which is drawn in the app's colour, so the test passed for the
+        // wrong reason and only said so when the glow's radius changed.
+        val redCorner = red.getPixel((size * 0.30f).toInt(), (size * 0.5f).toInt())
+        val blueCorner = blue.getPixel((size * 0.30f).toInt(), (size * 0.5f).toInt())
 
         assertNotEquals(
             "every tile lands on the same near-white and the set reads as identical squares",

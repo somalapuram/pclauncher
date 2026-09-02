@@ -76,6 +76,12 @@ private fun WallpaperManager?.readTone(): WallpaperTone = runCatching {
     WallpaperTone(
         supportsDarkText = colors.colorHints and HINT_SUPPORTS_DARK_TEXT != 0,
         dominant = Color(colors.primaryColor.toArgb()),
+        // Secondary and tertiary are optional and often null; taking them when they are there is
+        // what stops one large feature deciding the theme for the whole picture.
+        palette = listOfNotNull(
+            colors.secondaryColor?.let { Color(it.toArgb()) },
+            colors.tertiaryColor?.let { Color(it.toArgb()) },
+        ),
     )
 }.getOrDefault(WallpaperTone())
 

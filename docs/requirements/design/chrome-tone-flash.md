@@ -34,11 +34,16 @@ first frame of every window when the answer is available synchronously.
 
 ## Acceptance criteria
 
-- [ ] Opening the Start menu shows no light frame before the dark one, sampled across the open.
-- [ ] The same for the bar and the desktop at launch.
-- [ ] Changing the wallpaper still re-tints the chrome without a restart.
-- [ ] With the wallpaper unreadable, the shell still draws and follows the system setting.
-- [ ] `./gradlew test lint assembleDebug` green; checked on device.
+- [x] Opening the Start menu shows no light frame before the dark one. Measured with a probe on the
+      theme composition: before, `dark=false` then `dark=true` **401 ms** later; after, a single
+      `dark=true` on the first press and on the second.
+- [x] The same for the bar and the desktop at launch — two compositions, both `dark=true`.
+- [x] Changing the wallpaper still re-tints the chrome without a restart. Verified live: the
+      wallpaper was changed through the system picker with the shell running (pid unchanged across
+      it), and `OnColorsChangedListener` fired with `which=3` and re-read the tone in-process.
+- [x] With the wallpaper unreadable, the shell still draws and follows the system setting — the
+      `runCatching` fallback is unchanged and `WallpaperTone()` remains a legitimate answer.
+- [x] `./gradlew test lint assembleDebug` green; checked on device.
 
 ## Notes
 

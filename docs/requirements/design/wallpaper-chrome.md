@@ -1,3 +1,7 @@
+> **Preference order superseded by [`wallpaper-theme-alignment.md`](wallpaper-theme-alignment.md)**
+> — the wallpaper still decides rather than the system theme, but its *colours* now decide rather
+> than its dark-text hint. Everything else here stands.
+
 # Design — Chrome That Belongs to the Wallpaper
 
 Status: **Implemented** (2026-08-24)
