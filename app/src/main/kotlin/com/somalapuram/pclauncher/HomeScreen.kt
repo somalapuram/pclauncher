@@ -43,6 +43,17 @@ import androidx.compose.foundation.clickable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import com.somalapuram.pclauncher.feature.shell.input.ShellAction
+import com.somalapuram.pclauncher.feature.shell.input.modifiers
+import com.somalapuram.pclauncher.feature.shell.input.shortcutFor
 import com.somalapuram.pclauncher.core.data.layout.DesktopCell
 import com.somalapuram.pclauncher.core.data.layout.DesktopLayout
 import com.somalapuram.pclauncher.core.data.layout.firstFreeCell
@@ -116,6 +127,13 @@ fun HomeScreen(
     isDefaultHome: Boolean,
     onSetDefaultHome: () -> Unit,
     onRetry: () -> Unit,
+    /**
+     * Ctrl+Esc when the chrome is in the overlay window.
+     *
+     * The desktop hears the key — it is the focused window — but the menu it must open belongs to
+     * another window, so the toggle has to be handed across (shell-shortcuts.md requirement 1).
+     */
+    onOverlayStartToggle: () -> Unit = {},
     modifier: Modifier = Modifier,
     safeModeApps: List<AppEntry> = emptyList(),
 ) {
@@ -176,9 +194,35 @@ fun HomeScreen(
 
     // An outer Box so the Start menu can float *over* the desktop. Putting it in the column made
     // it a sibling that squeezed the desktop upward as it opened.
+    // A target for keys. The desktop's window has focus when it is in front, but a key event only
+    // reaches a handler if something in the composition holds focus — the same gap that left the
+    // Start menu's arrows dead (shell-shortcuts.md).
+    val desktopFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { desktopFocus.requestFocus() } }
+
     Box(
         modifier = modifier
             .fillMaxSize()
+            .focusRequester(desktopFocus)
+            // No indication: this exists to receive keys, not to be seen.
+            .focusable()
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                // menuOpen is false here even when the menu is up: an open menu has its own focus
+                // and its own handler, and this one must not answer for it.
+                when (shortcutFor(event.key, event.modifiers(), menuOpen = false)) {
+                    ShellAction.ToggleStart -> {
+                        if (chromeInOverlay) onOverlayStartToggle() else startOpen = !startOpen
+                        true
+                    }
+                    ShellAction.OpenSettings -> {
+                        onPowerAction(com.somalapuram.pclauncher.feature.shell.start.PowerAction.OpenSettings)
+                        true
+                    }
+                    // Esc on a bare desktop is not ours to take.
+                    ShellAction.CloseMenu, null -> false
+                }
+            }
             // Safe drawing *minus* the keyboard. Including the IME inset squeezes the whole shell
             // into the space above it — the desktop reflows, the bar leaves the bottom edge, and
             // the Start menu ends up floating beside a bar that has moved. A home screen does not
@@ -332,6 +376,7 @@ fun HomeScreen(
                 onLaunch = { onLaunchApp(it); startOpen = false },
                 onTogglePin = onTogglePin,
                 onDismiss = { startOpen = false },
+                onToggleStart = { startOpen = !startOpen },
                 iconFor = iconFor,
                 deviceName = deviceName,
                 powerPrivileges = powerPrivileges,

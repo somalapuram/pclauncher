@@ -62,6 +62,7 @@ import com.somalapuram.pclauncher.core.design.PcMotion
 import com.somalapuram.pclauncher.core.design.PcSpacing
 import com.somalapuram.pclauncher.feature.shell.bar.bitmapPainterFor
 import com.somalapuram.pclauncher.feature.shell.interaction.appItemGestures
+import com.somalapuram.pclauncher.feature.shell.input.handleShellKey
 
 /**
  * The Start menu: every launchable app, with a filter (SRS §6.4).
@@ -85,6 +86,8 @@ fun StartMenu(
     /** What the shell is allowed to do to the device, read at runtime (start-power.md). */
     powerPrivileges: PowerPrivileges = PowerPrivileges(),
     onPowerAction: (PowerAction) -> Unit = {},
+    /** Ctrl+Esc while the menu has focus. Closing it is the host's business, not the menu's. */
+    onToggleStart: () -> Unit = onDismiss,
 ) {
     val colors = LocalPcColors.current
     var query by remember { mutableStateOf("") }
@@ -185,8 +188,12 @@ fun StartMenu(
                         sections.entryAt(selected)?.takeIf { it.isLaunchable }?.let(onLaunch)
                         true
                     }
-                    Key.Escape -> { onDismiss(); true }
-                    else -> false
+                    // Typing selects the top hit, so Enter launches what the user is looking at —
+                    // the same thing a click in the search field does.
+                    else -> handleShellKey(event, query, onToggleStart, onPowerAction) {
+                        query = it
+                        selected = selectionAfterQuery(it, filtered.size)
+                    }
                 }
             },
     ) {
