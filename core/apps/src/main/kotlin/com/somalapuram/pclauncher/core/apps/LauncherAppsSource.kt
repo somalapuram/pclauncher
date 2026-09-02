@@ -137,14 +137,3 @@ class LauncherAppsSource(
         return AutoCloseable { runCatching { launcherApps.unregisterCallback(callback) } }
     }
 }
-
-/** Whether the user has granted usage access, for [usageSourceFor]. */
-fun hasUsageAccess(context: Context): Boolean = runCatching {
-    val appOps = context.getSystemService(android.app.AppOpsManager::class.java)
-    val mode = appOps.unsafeCheckOpNoThrow(
-        android.app.AppOpsManager.OPSTR_GET_USAGE_STATS,
-        android.os.Process.myUid(),
-        context.packageName,
-    )
-    mode == android.app.AppOpsManager.MODE_ALLOWED
-}.getOrDefault(false)
