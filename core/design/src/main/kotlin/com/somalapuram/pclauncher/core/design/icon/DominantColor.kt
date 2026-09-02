@@ -3,6 +3,8 @@ package com.somalapuram.pclauncher.core.design.icon
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.colorspace.ColorSpaces
+import androidx.compose.ui.graphics.luminance
 
 /**
  * The colour a legacy icon should sit on.
@@ -74,13 +76,63 @@ fun dominantColorOf(bitmap: Bitmap, sampleEdge: Int = 32): Color {
  */
 fun tileColorFor(style: IconStyle, appColor: Color): Color {
     val t = style.tileTint.coerceIn(0f, 1f)
-    return Color(
+    val blended = Color(
         red = style.tileBase.red + (appColor.red - style.tileBase.red) * t,
         green = style.tileBase.green + (appColor.green - style.tileBase.green) * t,
         blue = style.tileBase.blue + (appColor.blue - style.tileBase.blue) * t,
         alpha = 1f,
     )
+    return blended.darkenedTo(style.maxTileLuminance)
 }
+
+/**
+ * Bring a colour down to a maximum luminance, keeping its hue.
+ *
+ * The tile is built by blending the app's own colour into a near-white base, which works until the
+ * app's colour is itself near-white: the blend has nothing to move toward, the tile stays white, and
+ * a pale glyph disappears into it. Android's stock Clock is exactly that — a white background layer
+ * behind a pale face (white-icon-tiles.md).
+ *
+ * Scaled in **linear** light rather than on the sRGB components, because luminance is linear there:
+ * one multiply lands on the value asked for instead of near it. Scaling every channel by the same
+ * factor is what keeps the hue — a pale yellow becomes a deeper yellow, and only a colour with no
+ * hue at all becomes grey.
+ *
+ * One multiply gets there, but not exactly: an sRGB `Color` holds 8 bits a channel, so the target
+ * usually falls between two representable colours and the conversion rounds to the nearer — which
+ * may be the lighter one. For white against a 0.75 ceiling the neighbours are 224 (0.738) and 225
+ * (0.753), and it rounds up. Repeating the scale does not help; 225 is a fixed point of it.
+ *
+ * So the rounding is corrected rather than tolerated: one step down, once, which makes the ceiling
+ * a bound the result is never above rather than a value it is merely near.
+ */
+private fun Color.darkenedTo(max: Float): Color {
+    if (max >= 1f) return this
+    val current = luminance()
+    if (current <= max || current <= 0f) return this
+
+    val factor = max / current
+    val linear = convert(ColorSpaces.LinearSrgb)
+    val scaled = Color(
+        red = (linear.red * factor).coerceIn(0f, 1f),
+        green = (linear.green * factor).coerceIn(0f, 1f),
+        blue = (linear.blue * factor).coerceIn(0f, 1f),
+        alpha = alpha,
+        colorSpace = ColorSpaces.LinearSrgb,
+    ).convert(ColorSpaces.Srgb)
+
+    return if (scaled.luminance() <= max) scaled else scaled.oneStepDarker()
+}
+
+/** One 8-bit step down each channel — the smallest change an sRGB [Color] can represent. */
+private fun Color.oneStepDarker(): Color = Color(
+    red = (red - EightBitStep).coerceAtLeast(0f),
+    green = (green - EightBitStep).coerceAtLeast(0f),
+    blue = (blue - EightBitStep).coerceAtLeast(0f),
+    alpha = alpha,
+)
+
+private const val EightBitStep = 1f / 255f
 
 /**
  * Does this bitmap actually draw anything?

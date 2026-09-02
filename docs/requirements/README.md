@@ -66,6 +66,12 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
   shadow, baked once into the icon cache; dark-glass and soft-clay palettes by theme.
   *Status: Accepted · Implemented.*
 
+- [`design/white-icon-tiles.md`](design/white-icon-tiles.md) — a ceiling on tile lightness, so a
+  white app icon still has a ground. *Status: Accepted · Implemented.*
+- [`design/light-icon-separation.md`](design/light-icon-separation.md) — light tiles cast a shadow,
+  so a white icon does not vanish into a white panel. *Status: Accepted · Implemented.*
+- [`design/wallpaper-theme-alignment.md`](design/wallpaper-theme-alignment.md) — one polarity for
+  bar, menus and labels, taken from the wallpaper's colours. *Status: Accepted · Implemented.*
 - [`design/chrome-tone-flash.md`](design/chrome-tone-flash.md) — the chrome's first frame carries
   its final polarity. *Status: Accepted · Implemented.*
 
