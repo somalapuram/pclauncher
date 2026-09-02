@@ -106,6 +106,8 @@ fun HomeScreen(
     onRemoveWidget: (Int) -> Unit = {},
     onReportWidgetSize: (Int, Int, Int) -> Unit = { _, _, _ -> },
     deviceName: String? = null,
+    /** True while the chrome is being drawn by the overlay window instead. */
+    chromeInOverlay: Boolean = false,
     powerPrivileges: com.somalapuram.pclauncher.feature.shell.start.PowerPrivileges =
         com.somalapuram.pclauncher.feature.shell.start.PowerPrivileges(),
     onPowerAction: (com.somalapuram.pclauncher.feature.shell.start.PowerAction) -> Unit = {},
@@ -239,7 +241,10 @@ fun HomeScreen(
         // The bar renders from the inventory Flow, so it appears with the desktop and fills in —
         // an empty dock is a valid first frame, never a spinner (dock-taskbar.md requirement 8).
         // Safe mode gets no bar: it must not depend on the inventory or the icon cache.
-        if (outcome is StartupOutcome.Ready) {
+        // Exactly one bar. While the overlay is up it owns the chrome; while it is not — no
+        // permission, or a service that died — the activity keeps it, so the desktop is never left
+        // without one (GATE 4, overlay-service.md).
+        if (outcome is StartupOutcome.Ready && !chromeInOverlay) {
             val docked = PinResolution.resolve(apps.entries, pinnedIds)
             ShellBar(
                 state = BarStateFactory.from(apps.copy(entries = docked), iconFor = iconFor),

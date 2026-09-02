@@ -28,12 +28,19 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
  * it to be written once rather than repeated per surface — which is also the only way to be sure
  * every surface got all three.
  *
+ * Size and focusability are fixed for the life of the window, and deliberately so. Every
+ * `updateViewLayout` that changes either one re-lays-out the window and re-creates its surface,
+ * which the eye reads as the bar blinking. The chrome therefore uses one window per size it needs —
+ * a bar-height one that never changes, and a full-screen menu one that is added and removed — so
+ * nothing ever resizes underneath the user (overlay-service.md).
+ *
  * Guarded on the way up and down: this hosts the shell, and a window that cannot be added must cost
  * the chrome rather than the process (GATE 4).
  */
 class ComposeOverlayWindow(
     private val context: Context,
     private val gravity: Int = Gravity.BOTTOM or Gravity.START,
+    private val spec: OverlayWindowSpec = BarWindowSpec,
 ) : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
 
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -46,7 +53,6 @@ class ComposeOverlayWindow(
 
     private val windowManager = context.getSystemService(WindowManager::class.java)
     private var view: ComposeView? = null
-    private var focusable = false
 
     /** Add the window. Returns false when it could not be shown, which is not a failure to crash on. */
     fun show(content: @Composable () -> Unit): Boolean {
@@ -64,24 +70,11 @@ class ComposeOverlayWindow(
                 setContent { content() }
             }
 
-            windowManager?.addView(composeView, layoutParams(focusable = false))
+            windowManager?.addView(composeView, layoutParams())
             view = composeView
             lifecycleRegistry.currentState = Lifecycle.State.RESUMED
             true
         }.getOrDefault(false)
-    }
-
-    /**
-     * Whether the window may take key events.
-     *
-     * False at rest, because a focusable overlay steals every keystroke from the app the user is
-     * actually typing into. True only while a menu is open, and back the instant it closes.
-     */
-    fun setFocusable(value: Boolean) {
-        if (value == focusable) return
-        focusable = value
-        val current = view ?: return
-        runCatching { windowManager?.updateViewLayout(current, layoutParams(value)) }
     }
 
     fun dismiss() {
@@ -92,11 +85,11 @@ class ComposeOverlayWindow(
         store.clear()
     }
 
-    private fun layoutParams(focusable: Boolean) = WindowManager.LayoutParams(
+    private fun layoutParams() = WindowManager.LayoutParams(
         WindowManager.LayoutParams.MATCH_PARENT,
-        WindowManager.LayoutParams.WRAP_CONTENT,
+        spec.height,
         overlayType(),
-        windowFlags(focusable),
+        windowFlags(spec.focusable),
         PixelFormat.TRANSLUCENT,
     ).apply {
         this.gravity = this@ComposeOverlayWindow.gravity

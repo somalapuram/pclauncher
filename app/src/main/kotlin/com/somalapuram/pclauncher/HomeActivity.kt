@@ -10,7 +10,16 @@ import com.somalapuram.pclauncher.desktop.AppLauncher
 import com.somalapuram.pclauncher.desktop.ShellController
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.somalapuram.pclauncher.core.design.chromeIsDark
+import com.somalapuram.pclauncher.overlay.ChromeHost
+import com.somalapuram.pclauncher.overlay.ShellOverlayService
+import com.somalapuram.pclauncher.overlay.canDrawOverlay
+import com.somalapuram.pclauncher.overlay.chromeHostFor
 import com.somalapuram.pclauncher.wallpaper.rememberWallpaperTone
 import androidx.compose.runtime.remember
 import com.somalapuram.pclauncher.core.apps.AppEntry
@@ -88,6 +97,14 @@ class HomeActivity : ComponentActivity() {
             // wallpaper is an ordinary configuration and is exactly where the old answer looked
             // worst (wallpaper-chrome.md). Falls through to the system setting when the wallpaper
             // says nothing.
+            // Re-read on every resume: the user may have granted or revoked it in Settings while
+            // the shell was in the background.
+            // Started here, but reported by the service: hiding this activity's bar the moment
+            // the service is *asked* to start leaves a gap with no bar at all while the window is
+            // being added, which shows as a blink on every launch (overlay-service.md).
+            val overlayRunning by ShellOverlayService.isChromeUp.collectAsState()
+            LaunchedEffect(Unit) { ShellOverlayService.start(this@HomeActivity) }
+
             val dark = chromeIsDark(
                 tone = rememberWallpaperTone(),
                 systemDark = isSystemInDarkTheme(),
@@ -147,6 +164,10 @@ class HomeActivity : ComponentActivity() {
                     onReportWidgetSize = { id, widthDp, heightDp ->
                         widgets?.applySize(id, widthDp, heightDp)
                     },
+                    chromeInOverlay = chromeHostFor(
+                        hasPermission = canDrawOverlay(this@HomeActivity),
+                        overlayRunning = overlayRunning,
+                    ) == ChromeHost.Overlay,
                     deviceName = com.somalapuram.pclauncher.feature.shell.start.displayableDeviceName(
                         // The name the user actually set — what Bluetooth and Nearby show. The
                         // model only stands in when nothing has been set.

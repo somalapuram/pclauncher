@@ -76,6 +76,8 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
   shell's surfaces. *Status: Accepted · Implemented.*
 - [`shell/overlay-service.md`](shell/overlay-service.md) — the chrome in a `TYPE_APPLICATION_OVERLAY`
   window so it stays above app windows. *Status: Accepted · In progress.*
+- [`shell/overlay-window-split.md`](shell/overlay-window-split.md) — one window per size, so opening
+  the Start menu never blinks the bar. *Status: Accepted · Implemented.*
 - [`shell/dock-taskbar.md`](shell/dock-taskbar.md) — one bar: Start button, magnifying dock,
   taskbar window chips, Show Desktop. Rendered in the HOME activity first; the overlay service
   hosts the same composables later. *Status: Accepted · Partially implemented.*
