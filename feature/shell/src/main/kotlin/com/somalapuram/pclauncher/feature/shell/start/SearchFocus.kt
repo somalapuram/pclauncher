@@ -15,6 +15,11 @@ package com.somalapuram.pclauncher.feature.shell.start
  * Tapping the field still focuses it, and on a touch device raising the keyboard then is what the
  * user asked for.
  *
+ * What the menu *does* focus on open is its own panel — not a text field, so no IME — because key
+ * events reach `onPreviewKeyEvent` only when something in that subtree holds focus. Without it the
+ * arrow keys had no target at all and the menu's whole keyboard model was unreachable
+ * (recent-apps.md requirement 7).
+ *
  * Kept as a named function rather than a deleted line so the decision is visible at the call site
  * and has somewhere to be reversed.
  */

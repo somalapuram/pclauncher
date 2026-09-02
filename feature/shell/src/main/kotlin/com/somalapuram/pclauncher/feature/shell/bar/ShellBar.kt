@@ -1,6 +1,11 @@
 package com.somalapuram.pclauncher.feature.shell.bar
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
 import com.somalapuram.pclauncher.core.design.surfaceSheen
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
@@ -121,11 +126,23 @@ fun ShellBar(
                 ),
                 shape = RoundedCornerShape(PcCorners.Dock),
             )
-            .border(
-                width = if (isDropTarget) 2.dp else 1.dp,
-                color = if (isDropTarget) colors.accent else colors.hairline,
-                shape = RoundedCornerShape(PcCorners.Dock),
-            )
+            // Drawn *behind* the children, not with `Modifier.border`. Compose's border calls
+            // drawContent() and then draws the outline, so the bar's top edge was painted across
+            // every magnified icon rising through it (bar-outline-order.md).
+            .drawBehind {
+                val strokeWidth = (if (isDropTarget) 2.dp else 1.dp).toPx()
+                val radius = PcCorners.Dock.toPx()
+                // Inset by half, so a centred stroke sits inside the bounds exactly as
+                // `Modifier.border` placed it.
+                val inset = strokeWidth / 2f
+                drawRoundRect(
+                    color = if (isDropTarget) colors.accent else colors.hairline,
+                    topLeft = Offset(inset, inset),
+                    size = Size(size.width - strokeWidth, size.height - strokeWidth),
+                    cornerRadius = CornerRadius(radius, radius),
+                    style = Stroke(width = strokeWidth),
+                )
+            }
             .padding(horizontal = PcSpacing.Small)
             // Captured at the same level the pointer is read at, so the two agree about where
             // zero is.

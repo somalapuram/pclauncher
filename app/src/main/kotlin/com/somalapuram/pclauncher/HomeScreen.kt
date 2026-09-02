@@ -78,6 +78,8 @@ import com.somalapuram.pclauncher.core.design.SurfaceTreatment
 fun HomeScreen(
     outcome: StartupOutcome,
     inventory: StateFlow<AppInventory> = MutableStateFlow(AppInventory()),
+    /** Most recently launched first, for the Start menu's Recent row (recent-apps.md). */
+    recentApps: StateFlow<List<AppEntry>> = MutableStateFlow(emptyList()),
     pins: StateFlow<Pins> = MutableStateFlow(Pins()),
     desktopLayout: StateFlow<DesktopLayout> = MutableStateFlow(DesktopLayout()),
     iconFor: (AppEntry) -> android.graphics.drawable.Drawable? = { null },
@@ -106,6 +108,8 @@ fun HomeScreen(
     onRemoveWidget: (Int) -> Unit = {},
     onReportWidgetSize: (Int, Int, Int) -> Unit = { _, _, _ -> },
     deviceName: String? = null,
+    /** True while the chrome is being drawn by the overlay window instead. */
+    chromeInOverlay: Boolean = false,
     powerPrivileges: com.somalapuram.pclauncher.feature.shell.start.PowerPrivileges =
         com.somalapuram.pclauncher.feature.shell.start.PowerPrivileges(),
     onPowerAction: (com.somalapuram.pclauncher.feature.shell.start.PowerAction) -> Unit = {},
@@ -116,12 +120,14 @@ fun HomeScreen(
     safeModeApps: List<AppEntry> = emptyList(),
 ) {
     val apps by inventory.collectAsState()
+    val recent by recentApps.collectAsState()
     val currentPins by pins.collectAsState()
     val layout by desktopLayout.collectAsState()
     // Reported by the desktop once it has measured, so a drop can be turned into a cell.
     var cellW by remember { mutableStateOf(0f) }
     var cellH by remember { mutableStateOf(0f) }
-    var gridRows by remember { mutableStateOf(1) }
+    // Zero until the desktop reports its measured height. Placement waits for it.
+    var gridRows by remember { mutableStateOf(0) }
     // Auto-placement happens once, here, so the desktop and anything looking for a free cell agree
     // about what is occupied. Computed in the same column-major order the flowing grid used.
     val effectiveLayout = remember(apps, layout, gridRows) {
@@ -217,7 +223,11 @@ fun HomeScreen(
                     onReportWidgetSize = onReportWidgetSize,
                     layout = effectiveLayout,
                     onGridMetrics = { w, h, rows, origin, widthPx ->
-                        cellW = w; cellH = h; gridRows = rows
+                        cellW = w; cellH = h
+                        // A zero row count is the absence of a measurement, not news. Taking it
+                        // blanked every auto-placed icon for a frame, which is the flicker that
+                        // replaced the reflow (context-menu.md).
+                        if (rows > 0) gridRows = rows
                         desktopOrigin = origin; desktopWidthPx = widthPx
                     },
                 )
@@ -234,7 +244,10 @@ fun HomeScreen(
         // The bar renders from the inventory Flow, so it appears with the desktop and fills in —
         // an empty dock is a valid first frame, never a spinner (dock-taskbar.md requirement 8).
         // Safe mode gets no bar: it must not depend on the inventory or the icon cache.
-        if (outcome is StartupOutcome.Ready) {
+        // Exactly one bar. While the overlay is up it owns the chrome; while it is not — no
+        // permission, or a service that died — the activity keeps it, so the desktop is never left
+        // without one (GATE 4, overlay-service.md).
+        if (outcome is StartupOutcome.Ready && !chromeInOverlay) {
             val docked = PinResolution.resolve(apps.entries, pinnedIds)
             ShellBar(
                 state = BarStateFactory.from(apps.copy(entries = docked), iconFor = iconFor),
@@ -314,6 +327,7 @@ fun HomeScreen(
         ) {
             StartMenu(
                 entries = apps.entries,
+                recent = recent,
                 isPinned = isPinned,
                 onLaunch = { onLaunchApp(it); startOpen = false },
                 onTogglePin = onTogglePin,

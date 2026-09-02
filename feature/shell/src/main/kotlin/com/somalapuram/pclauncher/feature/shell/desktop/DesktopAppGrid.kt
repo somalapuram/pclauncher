@@ -53,6 +53,7 @@ import com.somalapuram.pclauncher.core.data.layout.ResizeEdge
 import com.somalapuram.pclauncher.core.data.layout.ResizePermission
 import com.somalapuram.pclauncher.feature.shell.widget.HostedWidget
 import com.somalapuram.pclauncher.feature.shell.widget.WidgetResizeFrame
+import com.somalapuram.pclauncher.core.design.PcMenu
 import com.somalapuram.pclauncher.core.design.LocalPcColors
 import com.somalapuram.pclauncher.core.design.PcCorners
 import com.somalapuram.pclauncher.core.design.labelShadowFor
@@ -128,7 +129,10 @@ fun DesktopAppGrid(
     val cellH = DesktopCellHeight
     val cellWpx = with(density) { cellW.toPx() }
     val cellHpx = with(density) { cellH.toPx() }
-    val rows = if (cellHpx > 0f) (heightPx / cellHpx).toInt().coerceAtLeast(1) else 1
+    // Zero means "not measured yet", which is the truth. Coercing it to 1 turned that into "one
+    // row", and one row per column is a horizontal arrangement the user sees before the real one
+    // replaces it (placement-timing.md).
+    val rows = if (cellHpx > 0f) (heightPx / cellHpx).toInt() else 0
     val columns = if (cellWpx > 0f) (widthPx / cellWpx).toInt().coerceAtLeast(1) else 1
 
     // [layout] arrives already auto-placed. Doing it here instead would keep the arrangement
@@ -148,10 +152,16 @@ fun DesktopAppGrid(
             .fillMaxSize()
             .padding(PcSpacing.Large)
             .onGloballyPositioned {
-                heightPx = it.size.height
-                widthPx = it.size.width
+                // Same reasoning as the row count: a zero-sized measurement is not information
+                // about the grid, and acting on it throws away an arrangement that was correct.
+                if (it.size.height > 0) heightPx = it.size.height
+                if (it.size.width > 0) widthPx = it.size.width
                 originInRoot = it.positionInRoot()
-                onGridMetrics(cellWpx, cellHpx, rows, originInRoot, it.size.width.toFloat())
+                // Derived from the size just measured, not from `rows` — that was computed during
+                // this composition, from the height *before* this measurement, so reporting it
+                // handed back the stale count and the wrong arrangement outlived the frame.
+                val measuredRows = if (cellHpx > 0f) (it.size.height / cellHpx).toInt() else 0
+                onGridMetrics(cellWpx, cellHpx, measuredRows, originInRoot, it.size.width.toFloat())
             }
             // The empty desktop's own gesture. Children are hit-tested first, so an icon handles
             // its own press and anything landing on bare desktop arrives here.
@@ -175,7 +185,7 @@ fun DesktopAppGrid(
                 },
             ),
     ) {
-        DropdownMenu(
+        PcMenu(
             expanded = desktopMenuOpen,
             onDismissRequest = { desktopMenuOpen = false },
             offset = with(density) { DpOffset(menuAt.x.toDp(), menuAt.y.toDp()) },
@@ -222,7 +232,10 @@ fun DesktopAppGrid(
 
         entries.forEach { entry ->
             val id = entry.key.component.flattenToShortString()
-            val cell = placed.cellFor(id) ?: DesktopCell(0, 0)
+            // No cell yet means the grid has not been measured. Drawing it at the origin would
+            // stack every icon in one corner; waiting a frame shows wallpaper, which is what SRS
+            // §12 asks for over a wrong screen.
+            val cell = placed.cellFor(id) ?: return@forEach
 
             DesktopIcon(
                 entry = entry,
@@ -230,7 +243,11 @@ fun DesktopAppGrid(
                 painter = iconFor(entry),
                 onLaunch = { onLaunch(entry) },
                 onTogglePin = { onTogglePin(entry) },
-                onDragStart = { local -> onDragStart(entry, originInRoot + local) },
+                // Passed straight through: the icon reports its own root position, because it is
+                // the only participant that knows where it is. Adding the *grid's* origin here
+                // dropped the icon's cell offset and put every drag near the grid's corner
+                // (drag-origin.md).
+                onDragStart = { at -> onDragStart(entry, at) },
                 onDrag = onDrag,
                 onDragEnd = onDragEnd,
                 modifier = Modifier
@@ -288,7 +305,11 @@ private fun DesktopIcon(
                     dragRequiresLongPress = false,
                     onClick = onLaunch,
                     onContextMenu = { _ -> menuOpen = true },
-                    onDragStart = { local -> onDragStart(local) },
+                    // Its own origin, not the caller's: this is the value that says *which* icon
+                    // is being dragged.
+                    // Its own origin, not the caller's: this is the value that says *which* icon
+                    // is being dragged.
+                    onDragStart = { local -> onDragStart(originInRoot + local) },
                     onDrag = onDrag,
                     onDragEnd = onDragEnd,
                 )
@@ -338,7 +359,7 @@ private fun DesktopIcon(
             )
         }
 
-        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+        PcMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
             DropdownMenuItem(
                 text = { Text(if (isPinned) "Unpin from taskbar" else "Pin to taskbar") },
                 onClick = { onTogglePin(); menuOpen = false },

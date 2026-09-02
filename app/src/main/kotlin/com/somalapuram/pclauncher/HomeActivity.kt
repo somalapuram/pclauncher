@@ -10,14 +10,24 @@ import com.somalapuram.pclauncher.desktop.AppLauncher
 import com.somalapuram.pclauncher.desktop.ShellController
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.isSystemInDarkTheme
-import com.somalapuram.pclauncher.core.design.chromeIsDark
-import com.somalapuram.pclauncher.wallpaper.rememberWallpaperTone
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.somalapuram.pclauncher.core.design.chromeIsDark
+import com.somalapuram.pclauncher.overlay.ChromeHost
+import com.somalapuram.pclauncher.overlay.ShellOverlayService
+import com.somalapuram.pclauncher.overlay.canDrawOverlay
+import com.somalapuram.pclauncher.overlay.chromeHostFor
+import com.somalapuram.pclauncher.prompts.FirstRunPrompt
+import com.somalapuram.pclauncher.core.apps.hasUsageAccess
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import com.somalapuram.pclauncher.wallpaper.rememberWallpaperTone
 import com.somalapuram.pclauncher.core.apps.AppEntry
 import com.somalapuram.pclauncher.core.design.PcTheme
 import android.content.Intent
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import com.somalapuram.pclauncher.desktop.IconResolver
 import com.somalapuram.pclauncher.feature.shell.tray.SystemTraySource
 import com.somalapuram.pclauncher.feature.shell.tray.TrayState
@@ -25,8 +35,6 @@ import com.somalapuram.pclauncher.feature.shell.widget.BindOutcome
 import com.somalapuram.pclauncher.feature.shell.widget.WidgetChoice
 import com.somalapuram.pclauncher.feature.shell.widget.cellsFor
 import com.somalapuram.pclauncher.widget.WidgetController
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import com.somalapuram.pclauncher.di.HomeEntryPoint
 import dagger.hilt.android.EntryPointAccessors
 
@@ -74,7 +82,9 @@ class HomeActivity : ComponentActivity() {
 
         // The inventory now belongs to the ViewModel, which also owns pin state so the dock, the
         // Start menu and the desktop cannot disagree about what is pinned.
-        val launcher = AppLauncher(applicationContext)
+        // Recording hangs off the launcher rather than each surface, so the desktop, the dock and
+        // the Start menu cannot disagree about what was opened (recent-apps.md requirement 4).
+        val launcher = AppLauncher(applicationContext) { shell?.recordLaunch(it) }
         widgets?.startListening()
 
         val traySource = SystemTraySource(applicationContext)
@@ -88,6 +98,35 @@ class HomeActivity : ComponentActivity() {
             // wallpaper is an ordinary configuration and is exactly where the old answer looked
             // worst (wallpaper-chrome.md). Falls through to the system setting when the wallpaper
             // says nothing.
+
+            // Re-read on every resume, never cached: the user may have granted or revoked
+            // "Display over other apps" in Settings while the shell was in the background — which
+            // is exactly what happens when they come back from the card below
+            // (overlay-permission-ask.md).
+            var canOverlay by remember { mutableStateOf(canDrawOverlay(this@HomeActivity)) }
+            // Usage access the same way and for the same reason: the user grants it on a Settings
+            // screen we send them to, and the answer has to be true again the moment they return
+            // (usage-access-ask.md requirement 6).
+            var canReadUsage by remember { mutableStateOf(hasUsageAccess(this@HomeActivity)) }
+            LifecycleResumeEffect(Unit) {
+                canOverlay = canDrawOverlay(this@HomeActivity)
+                canReadUsage = hasUsageAccess(this@HomeActivity)
+                onPauseOrDispose {}
+            }
+            // Keyed on the permission, so a grant takes effect on return rather than on next boot.
+            LaunchedEffect(canOverlay) {
+                if (canOverlay) ShellOverlayService.start(this@HomeActivity)
+            }
+            // Likewise for usage access: granting it swaps which source answers, and nothing in the
+            // inventory or the counters changes to say so.
+            LaunchedEffect(canReadUsage) { shell?.refreshUsage() }
+            // Started above, but reported by the service: hiding this activity's bar the moment
+            // the service is *asked* to start leaves a gap with no bar at all while the window is
+            // being added, which shows as a blink on every launch (overlay-service.md).
+            val overlayRunning by ShellOverlayService.isChromeUp.collectAsState()
+
+            val promptStore = remember { runCatching { entryPoint().promptStore() }.getOrNull() }
+
             val dark = chromeIsDark(
                 tone = rememberWallpaperTone(),
                 systemDark = isSystemInDarkTheme(),
@@ -101,6 +140,7 @@ class HomeActivity : ComponentActivity() {
             PcTheme(darkTheme = dark) {
                 HomeScreen(
                     inventory = shell?.inventory ?: EmptyInventory,
+                    recentApps = shell?.recent ?: EmptyRecent,
                     pins = shell?.pins ?: EmptyPins,
                     desktopLayout = shell?.layout ?: EmptyLayout,
                     iconFor = iconFor,
@@ -147,6 +187,10 @@ class HomeActivity : ComponentActivity() {
                     onReportWidgetSize = { id, widthDp, heightDp ->
                         widgets?.applySize(id, widthDp, heightDp)
                     },
+                    chromeInOverlay = chromeHostFor(
+                        hasPermission = canOverlay,
+                        overlayRunning = overlayRunning,
+                    ) == ChromeHost.Overlay,
                     deviceName = com.somalapuram.pclauncher.feature.shell.start.displayableDeviceName(
                         // The name the user actually set — what Bluetooth and Nearby show. The
                         // model only stands in when nothing has been set.
@@ -167,6 +211,19 @@ class HomeActivity : ComponentActivity() {
                     onSetDefaultHome = { startActivity(HomeRole.requestIntent(this)) },
                     onRetry = { recreate() },
                     safeModeApps = safeModeApps,
+                )
+
+                // After the desktop, so the explanation lands on a shell the user can already see
+                // — the card describes what happens to that bar, and it reads as an answer to
+                // something in front of them rather than a gate before it.
+                // The card, if one is due. Which prompt and whether it has been answered are
+                // decided in `FirstRunPrompt`; the activity supplies only what it can read live.
+                FirstRunPrompt(
+                    store = promptStore,
+                    canDrawOverlay = canOverlay,
+                    hasUsageAccess = canReadUsage,
+                    // A missing Settings screen costs the permission, not the desktop.
+                    onOpenSettings = { runCatching { startActivity(it) } },
                 )
             }
         }
@@ -197,6 +254,8 @@ class HomeActivity : ComponentActivity() {
             layoutStore = entryPoint.desktopLayoutStore(),
             scope = lifecycleScope,
             userSerial = userSerial,
+            usageStore = entryPoint.usageStore(),
+            usageSignals = entryPoint.usageSignals(),
         )
     }
 
@@ -332,6 +391,9 @@ private const val DesktopCellDp = 96
 private const val DesktopCellHeightDp = 104
 
 /** Stand-ins for a shell that could not be built, so the desktop still renders. */
+private val EmptyRecent =
+    kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.somalapuram.pclauncher.core.apps.AppEntry>())
+
 private val EmptyInventory = kotlinx.coroutines.flow.MutableStateFlow(
     com.somalapuram.pclauncher.core.apps.AppInventory(),
 )

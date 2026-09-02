@@ -36,6 +36,7 @@ import com.somalapuram.pclauncher.core.data.layout.ResizeEdge
 import com.somalapuram.pclauncher.core.data.layout.ResizePermission
 import com.somalapuram.pclauncher.core.data.layout.cellAfterDrag
 import com.somalapuram.pclauncher.core.data.layout.widgetSizeDp
+import com.somalapuram.pclauncher.core.design.PcMenu
 import com.somalapuram.pclauncher.core.design.LocalPcColors
 import com.somalapuram.pclauncher.core.design.PcCorners
 import com.somalapuram.pclauncher.core.design.PcHover
@@ -175,7 +176,7 @@ fun DesktopWidget(
             )
         }
 
-        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+        PcMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
             // Offered only where it would do something: a RESIZE_NONE widget still needs a menu,
             // because it still needs removing (widget-removal.md requirement 3).
             if (permission.isResizable) {
@@ -242,11 +243,13 @@ private fun Modifier.widgetGestures(
                 while (true) {
                     val event = awaitPointerEvent(PointerEventPass.Initial)
                     val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                    if (!change.pressed) break
                     // Read the delta before consuming: a consumed change reports no movement.
+                    // The release carries movement too, so it is applied before breaking rather
+                    // than discarded — otherwise the drop is one event short of the pointer.
                     val delta = change.positionChange()
                     change.consume()
                     onDrag(delta)
+                    if (!change.pressed) break
                 }
                 onDragEnd()
             }

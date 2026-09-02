@@ -41,6 +41,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.focusable
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -53,6 +54,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.somalapuram.pclauncher.core.apps.AppEntry
+import com.somalapuram.pclauncher.core.design.PcMenu
 import com.somalapuram.pclauncher.core.design.LocalPcColors
 import com.somalapuram.pclauncher.core.design.PcCorners
 import com.somalapuram.pclauncher.core.design.PcHover
@@ -77,6 +79,8 @@ fun StartMenu(
     onDismiss: () -> Unit,
     iconFor: (AppEntry) -> android.graphics.drawable.Drawable?,
     modifier: Modifier = Modifier,
+    /** Most recently launched first. Empty until the user has opened something (recent-apps.md). */
+    recent: List<AppEntry> = emptyList(),
     deviceName: String? = null,
     /** What the shell is allowed to do to the device, read at runtime (start-power.md). */
     powerPrivileges: PowerPrivileges = PowerPrivileges(),
@@ -89,15 +93,35 @@ fun StartMenu(
     // (start-selection.md).
     var selected by remember { mutableStateOf<Selection>(null) }
     val focusRequester = remember { FocusRequester() }
+    // The menu itself, not the search field. A key event only reaches `onPreviewKeyEvent` if
+    // something in this subtree holds focus, and nothing did — the field deliberately does not take
+    // it (see `shouldFocusSearchOnOpen`), so the arrow keys had nowhere to land. Focusing the panel
+    // gives them a target without putting a caret in a text field, which is what raises the IME
+    // over the menu (recent-apps.md requirement 7).
+    val panelFocusRequester = remember { FocusRequester() }
     val gridState = rememberLazyGridState()
 
     val filtered = remember(entries, query) { AppSearch.filter(entries, query) }
 
+    // Hidden while searching: the user is looking at results, and a row of unrelated apps above
+    // them is noise (recent-apps.md requirement 3).
+    val sections = remember(recent, filtered, query) {
+        StartSections(
+            recent = recentFor(recent, query),
+            all = filtered,
+            columns = StartColumns,
+        )
+    }
+
     // The selection must survive filtering — clamping rather than resetting keeps the highlight
     // where the user is looking when results shrink under them.
-    LaunchedEffect(filtered.size) { selected = selectionAfterFilter(selected, filtered.size) }
+    LaunchedEffect(sections.navigable.size) {
+        selected = selectionAfterFilter(selected, sections.navigable.size)
+    }
     LaunchedEffect(selected) {
-        selected?.let { if (filtered.isNotEmpty()) gridState.animateScrollToItem(it) }
+        // Only when the caret is in the grid. The recent row is always in view, and scrolling to it
+        // would yank the grid about under a selection that is not in it.
+        sections.gridIndexFor(selected)?.let { gridState.animateScrollToItem(it) }
     }
     // SRS §6.4 wants typing to land in search the moment the menu opens — which on the target
     // machine means a hardware keyboard, and there focusing costs nothing. Where the only keyboard
@@ -105,12 +129,17 @@ fun StartMenu(
     // to, and the user has to dismiss it before they can see what they opened.
     LaunchedEffect(Unit) {
         if (shouldFocusSearchOnOpen()) runCatching { focusRequester.requestFocus() }
+        else runCatching { panelFocusRequester.requestFocus() }
     }
 
     Column(
         modifier = modifier
             .width(420.dp)
-            .heightIn(max = 560.dp)
+            // Taller when the Recent row is up, by roughly what that row costs. Holding the
+            // panel at one height instead squeezes the grid below it, and the grid then clips
+            // through the middle of a row of labels — which reads as a rendering fault rather
+            // than as "scroll for more".
+            .heightIn(max = if (sections.recent.isEmpty()) PanelHeight else PanelHeightWithRecent)
             // Swallow clicks that land on the menu's own inert areas — its padding, the gap beside
             // a row. A surface that only *looks* solid lets those fall through to the dismiss
             // layer beneath, so clicking inside the menu would close it. Rows and the search field
@@ -127,28 +156,33 @@ fun StartMenu(
             .background(colors.surface, RoundedCornerShape(PcCorners.Surface))
             .border(1.dp, colors.hairline, RoundedCornerShape(PcCorners.Surface))
             .padding(PcSpacing.Medium)
+            .focusRequester(panelFocusRequester)
+            // Focusable, but with no indication of its own: this exists to receive keys, and a
+            // focus ring around the whole panel would say something untrue about where Enter acts.
+            .focusable()
+            // Preview, so the arrows are read on the way *down* — they steer the grid even when
+            // the search field below has taken focus from a click.
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 // Arrow arithmetic lives in moveInGrid: in a grid, up/down move by a whole row,
                 // and every seam (row edges, a partial last row) is an off-by-one waiting to happen.
                 when (event.key) {
                     Key.DirectionDown -> {
-                        selected = selectionAfterMove(selected, GridMove.Down, filtered.size, StartColumns); true
+                        selected = selectionAfterMoveInSections(selected, GridMove.Down, sections); true
                     }
                     Key.DirectionUp -> {
-                        selected = selectionAfterMove(selected, GridMove.Up, filtered.size, StartColumns); true
+                        selected = selectionAfterMoveInSections(selected, GridMove.Up, sections); true
                     }
                     Key.DirectionLeft -> {
-                        selected = selectionAfterMove(selected, GridMove.Left, filtered.size, StartColumns); true
+                        selected = selectionAfterMoveInSections(selected, GridMove.Left, sections); true
                     }
                     Key.DirectionRight -> {
-                        selected = selectionAfterMove(selected, GridMove.Right, filtered.size, StartColumns); true
+                        selected = selectionAfterMoveInSections(selected, GridMove.Right, sections); true
                     }
                     Key.Enter, Key.NumPadEnter -> {
                         // Nothing selected launches nothing: Enter must not fire an app the user
                         // never pointed the keyboard at.
-                        selected?.let { filtered.getOrNull(it) }
-                            ?.takeIf { it.isLaunchable }?.let(onLaunch)
+                        sections.entryAt(selected)?.takeIf { it.isLaunchable }?.let(onLaunch)
                         true
                     }
                     Key.Escape -> { onDismiss(); true }
@@ -160,6 +194,16 @@ fun StartMenu(
             query = query,
             onQueryChange = { query = it; selected = selectionAfterQuery(it, filtered.size) },
             focusRequester = focusRequester,
+        )
+
+        RecentRow(
+            entries = sections.recent,
+            columns = StartColumns,
+            selectedIndex = selected?.takeIf { it < sections.recentSlots },
+            isPinned = isPinned,
+            iconFor = iconFor,
+            onLaunch = onLaunch,
+            onTogglePin = onTogglePin,
         )
 
         Text(
@@ -190,7 +234,8 @@ fun StartMenu(
                 items(filtered, key = { it.key.component.flattenToShortString() + it.key.user }) { entry ->
                     AppCell(
                         entry = entry,
-                        isSelected = selected?.let { filtered.getOrNull(it) } === entry,
+                        isSelected = sections.entryAt(selected) === entry &&
+                            sections.gridIndexFor(selected) != null,
                         isPinned = isPinned(entry),
                         painter = iconFor(entry),
                         onLaunch = { onLaunch(entry) },
@@ -208,139 +253,6 @@ fun StartMenu(
     }
 }
 
-@Composable
-private fun SearchField(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    focusRequester: FocusRequester,
-) {
-    val colors = LocalPcColors.current
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(38.dp)
-            .background(colors.onSurface.copy(alpha = 0.07f), RoundedCornerShape(PcCorners.Popover))
-            .padding(horizontal = PcSpacing.Medium),
-        contentAlignment = Alignment.CenterStart,
-    ) {
-        if (query.isEmpty()) {
-            Text("Search apps", color = colors.onSurfaceMuted, fontSize = 14.sp)
-        }
-        BasicTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            singleLine = true,
-            textStyle = TextStyle(color = colors.onSurface, fontSize = 14.sp),
-            cursorBrush = SolidColor(colors.accent),
-            modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
-        )
-    }
-}
-
-@Composable
-private fun EmptyNote(text: String) {
-    Text(
-        text = text,
-        color = LocalPcColors.current.onSurfaceMuted,
-        fontSize = 13.sp,
-        modifier = Modifier.padding(PcSpacing.Large),
-    )
-}
-
-@Composable
-private fun AppCell(
-    entry: AppEntry,
-    isSelected: Boolean,
-    isPinned: Boolean,
-    painter: android.graphics.drawable.Drawable?,
-    onLaunch: () -> Unit,
-    onTogglePin: () -> Unit,
-) {
-    val colors = LocalPcColors.current
-    var menuOpen by remember { mutableStateOf(false) }
-
-    val interactions = remember { MutableInteractionSource() }
-    val hovered by interactions.collectIsHoveredAsState()
-
-    // Hover and keyboard selection are different states and must not look the same: the caret can
-    // be on one row while the pointer rests on another, and the user needs to see which is which.
-    // Selection is the stronger of the two, being where Enter will act.
-    val wash by animateFloatAsState(
-        targetValue = when {
-            isSelected -> SelectedWash
-            menuOpen -> PcHover.PressedWash
-            else -> PcHover.washFor(hovered)
-        },
-        animationSpec = PcMotion.DockMagnify,
-        label = "start-entry-wash",
-    )
-    val scale by animateFloatAsState(
-        targetValue = PcHover.scaleFor(hovered && !isSelected),
-        animationSpec = PcMotion.DockMagnify,
-        label = "start-entry-scale",
-    )
-
-    Box {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(96.dp)
-                .hoverable(interactions)
-                .appItemGestures(
-                    key = entry.key,
-                    enabled = entry.isLaunchable,
-                    onClick = onLaunch,
-                    onContextMenu = { _ -> menuOpen = true },
-                )
-                // After the gesture: a transform applies to everything inside it, and scaling the
-                // gesture node scales the coordinates it reports.
-                .graphicsLayer { scaleX = scale; scaleY = scale }
-                .background(
-                    colors.onSurface.copy(alpha = wash),
-                    RoundedCornerShape(PcCorners.Popover),
-                )
-                .padding(vertical = PcSpacing.Small),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(PcSpacing.ExtraSmall),
-        ) {
-            // Unavailable and suspended entries are greyed rather than hidden — the inventory's
-            // contract, carried through to every surface that lists an app.
-            Box(modifier = Modifier.alpha(if (entry.isLaunchable) 1f else 0.4f)) {
-                bitmapPainterFor(painter)?.let {
-                    Image(painter = it, contentDescription = null, modifier = Modifier.size(44.dp))
-                } ?: Box(Modifier.size(44.dp))
-            }
-
-            Text(
-                text = entry.label,
-                color = if (entry.isLaunchable) colors.onSurface else colors.onSurfaceMuted,
-                fontSize = 11.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 2.dp),
-            )
-        }
-
-        if (isPinned) {
-            Box(
-                Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(4.dp)
-                    .size(6.dp)
-                    .background(colors.accent, RoundedCornerShape(50)),
-            )
-        }
-
-        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-            DropdownMenuItem(
-                text = { Text(if (isPinned) "Unpin from taskbar" else "Pin to taskbar") },
-                onClick = { onTogglePin(); menuOpen = false },
-            )
-        }
-    }
-}
-
 /**
  * Start's column count.
  *
@@ -350,8 +262,17 @@ private fun AppCell(
  */
 const val StartColumns = 5
 
-/** The keyboard caret's row. Stronger than a hover, because Enter acts here. */
-private const val SelectedWash = 0.14f
+/** Four full rows of apps under the search field, with the footer below them. */
+private val PanelHeight = 560.dp
+
+/**
+ * The Recent row and its heading, plus three whole rows of apps rather than four.
+ *
+ * Keeping all four would need 684 dp, and on an 800 dp-tall display with the bar below and the
+ * status bar above that leaves the panel touching the status bar. One row of All apps is the right
+ * thing to give up: it is a scrolling list, and the row above it is not.
+ */
+private val PanelHeightWithRecent = 600.dp
 
 /** Enough to lift the panel off the wallpaper; one shadow, well inside the budget (SRS §4.3). */
 private val PanelElevation = 16.dp

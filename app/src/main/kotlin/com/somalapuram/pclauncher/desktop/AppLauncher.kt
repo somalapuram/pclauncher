@@ -12,8 +12,16 @@ import com.somalapuram.pclauncher.core.apps.AppEntry
  *
  * Bounds and windowing mode are **not** decided here — that is `WindowBackend`'s job
  * (`windows/capability-tiers.md`). This is the minimum needed to make the shell able to launch.
+ *
+ * Every launch in the shell goes through here, which is why [onLaunched] hangs off it: recording
+ * use at each surface instead means one of them eventually forgets, and a recents list that is
+ * quietly missing an app is a bug nobody reports (recent-apps.md requirement 4).
  */
-class AppLauncher(private val context: Context) {
+class AppLauncher(
+    private val context: Context,
+    /** Called only for a launch that actually started. Must not block — see `recordLaunch`. */
+    private val onLaunched: (AppEntry) -> Unit = {},
+) {
 
     private val launcherApps = context.getSystemService(LauncherApps::class.java)
 
@@ -22,6 +30,9 @@ class AppLauncher(private val context: Context) {
         if (!entry.isLaunchable) return false
         return runCatching {
             launcherApps.startMainActivity(entry.key.component, entry.key.user, null, null)
+            // After the launch, and guarded separately: bookkeeping must never be able to cost the
+            // user the app they asked for (GATE 4).
+            runCatching { onLaunched(entry) }
             true
         }.getOrDefault(false)
     }

@@ -35,6 +35,10 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 - [`launch/app-inventory.md`](launch/app-inventory.md) — `LauncherApps` inventory keyed by
   (component, user), icon cache, work/private profiles, incremental deltas, usage/recency.
   *Status: Accepted · Implemented.*
+- [`launch/recent-apps.md`](launch/recent-apps.md) — the Start menu's Recent row, wired to the
+  usage counters phase 2 built. *Status: Accepted · Implemented.*
+- [`launch/usage-access-ask.md`](launch/usage-access-ask.md) — the second first-run card, sequenced
+  so two are never on screen at once. *Status: Accepted · Implemented.*
 
 ### windows
 - `windows/capability-tiers.md` — `WindowBackend` interface + T0, runtime tier detection, the
@@ -66,10 +70,20 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
   Android app-grid Start mark. *Status: Accepted · Implemented.*
 - [`shell/pointer-follow-through.md`](shell/pointer-follow-through.md) — magnification lets go when
   the pointer leaves, and the drag ghost sits under it. *Status: Implemented (hover unverified).*
+- [`shell/bar-outline-order.md`](shell/bar-outline-order.md) — the bar's edge draws behind icons
+  that rise through it. *Status: Implemented (overlap unverified).*
 - [`shell/dock-magnification-fixes.md`](shell/dock-magnification-fixes.md) — hover magnifies the
   icon under the pointer and leaves the bar’s height alone. *Status: Implemented (hover unverified).*
 - [`shell/shell-insets.md`](shell/shell-insets.md) — the on-screen keyboard does not move the
   desktop or the bar. *Status: Accepted · Implemented.*
+- [`shell/context-menu.md`](shell/context-menu.md) — menus that disturb nothing and match the
+  shell's surfaces. *Status: Accepted · Implemented.*
+- [`shell/overlay-service.md`](shell/overlay-service.md) — the chrome in a `TYPE_APPLICATION_OVERLAY`
+  window so it stays above app windows. *Status: Accepted · In progress.*
+- [`shell/overlay-window-split.md`](shell/overlay-window-split.md) — one window per size, so opening
+  the Start menu never blinks the bar. *Status: Accepted · Implemented.*
+- [`shell/overlay-permission-ask.md`](shell/overlay-permission-ask.md) — explain "Display over other
+  apps" once, then let the user decide. *Status: Accepted · Implemented.*
 - [`shell/dock-taskbar.md`](shell/dock-taskbar.md) — one bar: Start button, magnifying dock,
   taskbar window chips, Show Desktop. Rendered in the HOME activity first; the overlay service
   hosts the same composables later. *Status: Accepted · Partially implemented.*
@@ -99,6 +113,10 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 ### desktop
 - [`desktop/icon-size.md`](desktop/icon-size.md) — icons drawn large enough to fill their cells,
   and the reserved-margin fraction that made them small. *Status: Accepted · Implemented.*
+- [`desktop/placement-timing.md`](desktop/placement-timing.md) — no auto-placement before the grid
+  is measured. *Status: Accepted · Implemented.*
+- [`desktop/drag-origin.md`](desktop/drag-origin.md) — a drag reports the pointer's position, not
+  the grid's corner. *Status: Accepted · Implemented.*
 - [`desktop/icon-grid.md`](desktop/icon-grid.md) — persisted icon cells, drag-to-arrange, and the
   desktop’s own context menu (wallpaper, add widget). *Status: Accepted · Implemented.*
 - [`desktop/widget-resize.md`](desktop/widget-resize.md) — long-press a widget to resize it by

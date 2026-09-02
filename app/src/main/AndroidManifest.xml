@@ -33,6 +33,16 @@
         app cannot hold these, and that is the whole design — the declaration is what lets the
         privileged build be granted them, and the UI is written to expect the denial.
     -->
+    <!--
+        The chrome floats over other windows from a foreground service. SYSTEM_ALERT_WINDOW is a
+        *special* permission an ordinary app may hold once the user grants it in Settings, which is
+        why the overlay needs no AOSP build (overlay-service.md, SRS §5.1).
+    -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <uses-permission
         android:name="android.permission.REBOOT"
         tools:ignore="ProtectedPermissions" />
@@ -72,5 +82,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".overlay.ShellOverlayService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="The launcher's own dock, Start menu and system tray, which must stay
+                    visible above app windows" />
+        </service>
     </application>
 </manifest>

@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.PowerManager
 import android.provider.Settings
+import com.somalapuram.pclauncher.HomeActivity
 import com.somalapuram.pclauncher.feature.shell.start.PowerAction
 import com.somalapuram.pclauncher.feature.shell.start.PowerPrivileges
 import com.somalapuram.pclauncher.feature.shell.start.isAvailable
@@ -33,21 +34,21 @@ private fun Context.holds(permission: String): Boolean =
  * Availability is re-checked here rather than trusted from the UI, so a stale composition cannot
  * fire a privileged call.
  */
-fun performPowerAction(activity: Activity, action: PowerAction) {
-    val privileges = powerPrivilegesOf(activity)
+fun performPowerAction(context: Context, action: PowerAction) {
+    val privileges = powerPrivilegesOf(context)
     if (!isAvailable(action, privileges)) return
 
     when (action) {
-        PowerAction.OpenSettings -> activity.launch(Settings.ACTION_SETTINGS)
-        PowerAction.RestartShell -> restartShell(activity)
+        PowerAction.OpenSettings -> context.launch(Settings.ACTION_SETTINGS)
+        PowerAction.RestartShell -> restartShell(context)
         PowerAction.RestartDevice -> {
-            runCatching { activity.getSystemService(PowerManager::class.java)?.reboot(null) }
+            runCatching { context.getSystemService(PowerManager::class.java)?.reboot(null) }
         }
         PowerAction.PowerOff -> {
             // No public API exists; this is the internal action the system's own power menu uses,
             // and it is gated on SHUTDOWN — exactly the permission checked above.
             runCatching {
-                activity.startActivity(
+                context.startActivity(
                     Intent(ACTION_REQUEST_SHUTDOWN)
                         .putExtra(EXTRA_KEY_CONFIRM, false)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
@@ -57,7 +58,7 @@ fun performPowerAction(activity: Activity, action: PowerAction) {
     }
 }
 
-private fun Activity.launch(action: String) {
+private fun Context.launch(action: String) {
     runCatching { startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }
 
@@ -69,16 +70,19 @@ private fun Activity.launch(action: String) {
  * the recovery. The home activity is relaunched by the system by definition, which is what makes
  * this safe to do at all (GATE 4).
  */
-private fun restartShell(activity: Activity) {
+private fun restartShell(context: Context) {
     runCatching {
         // Ask for the shell back *before* dying. Exiting alone left whatever was behind the
         // launcher in front and the desktop gone until the user pressed HOME — a home screen that
         // does not come back is precisely what GATE 4 forbids.
-        activity.startActivity(
-            Intent(activity, activity.javaClass)
+        //
+        // Named explicitly rather than taken from the caller, because the caller may be the
+        // overlay service, which has no activity of its own to relaunch.
+        context.startActivity(
+            Intent(context, HomeActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
         )
-        activity.finish()
+        (context as? Activity)?.finish()
         Runtime.getRuntime().exit(0)
     }
 }

@@ -118,6 +118,11 @@ fun withAutoPlacement(
     ids: List<String>,
     rowsPerColumn: Int,
 ): DesktopLayout {
+    // An unmeasured grid has no row count, and "one row" is not a safe stand-in — it is a
+    // horizontal arrangement the user can see before the real one replaces it
+    // (placement-timing.md).
+    if (rowsPerColumn <= 0) return layout
+
     var result = layout
     for (id in ids) {
         if (result.cellFor(id) != null) continue
