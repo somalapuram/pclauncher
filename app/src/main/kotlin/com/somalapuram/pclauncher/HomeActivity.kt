@@ -187,6 +187,7 @@ class HomeActivity : ComponentActivity() {
                     onReportWidgetSize = { id, widthDp, heightDp ->
                         widgets?.applySize(id, widthDp, heightDp)
                     },
+                    onOverlayStartToggle = { ShellOverlayService.toggleStart() },
                     chromeInOverlay = chromeHostFor(
                         hasPermission = canOverlay,
                         overlayRunning = overlayRunning,
