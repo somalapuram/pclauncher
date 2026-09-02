@@ -29,6 +29,10 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 - [`foundation/scaffolding.md`](foundation/scaffolding.md) — Gradle + version catalog, module skeleton, Hilt, Compose design
   tokens, HOME activity owning `ROLE_HOME`, green test harness. *Status: Accepted · Implemented.*
 
+### input
+- [`input/shell-shortcuts.md`](input/shell-shortcuts.md) — the keys the shell can actually receive,
+  and why the rest of SRS §8 is not bound yet. *Status: Accepted · Implemented.*
+
 ### launch
 - [`launch/inventory-identity.md`](launch/inventory-identity.md) — one entry per key, and a build
   that replaces rather than accumulates. *Status: Accepted · Implemented.*

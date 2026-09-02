@@ -132,6 +132,7 @@ fun OverlayStartMenu(
                 onLaunch = { launcher.launch(it); onDismiss() },
                 onTogglePin = { shell?.togglePin(it) },
                 onDismiss = onDismiss,
+                onToggleStart = onDismiss,
                 iconFor = iconFor,
                 deviceName = displayableDeviceName(
                     deviceName = runCatching {

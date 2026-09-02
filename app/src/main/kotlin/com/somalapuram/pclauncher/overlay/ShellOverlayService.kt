@@ -53,10 +53,13 @@ class ShellOverlayService : Service() {
     private var traySource: SystemTraySource? = null
 
     /**
-     * Hoisted out of the composition because two windows read it: the bar draws the Start button
-     * pressed, and the service adds and removes the menu window from it.
+     * Hoisted out of the composition because two windows read it — the bar draws the Start button
+     * pressed, and the service adds and removes the menu window from it — and out of the *instance*
+     * because a third caller is not in this process's UI at all: the desktop's Ctrl+Esc, which is
+     * heard by the home activity's window and has to open a menu in ours
+     * (shell-shortcuts.md requirement 1).
      */
-    private val startOpen = MutableStateFlow(false)
+    private val startOpen get() = startOpenState
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -179,6 +182,8 @@ class ShellOverlayService : Service() {
     }
 
     override fun onDestroy() {
+        // Left open, the flag would reopen the menu the moment a new chrome window appeared.
+        startOpenState.value = false
         hideMenu()
         barWindow?.dismiss()
         barWindow = null
@@ -231,6 +236,18 @@ class ShellOverlayService : Service() {
         private const val ID = 1
 
         private val chromeUp = MutableStateFlow(false)
+
+        private val startOpenState = MutableStateFlow(false)
+
+        /**
+         * Open the overlay's Start menu, or close it.
+         *
+         * Safe to call when no overlay is running: the flow simply has no collector, and the
+         * activity's own menu is the one on screen (GATE 4).
+         */
+        fun toggleStart() {
+            startOpenState.value = !startOpenState.value
+        }
 
         /**
          * Whether the bar is actually on screen.
