@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -57,6 +58,7 @@ import com.somalapuram.pclauncher.feature.shell.tray.TrayState
 @Composable
 fun ShellBar(
     state: BarState,
+    startGlyph: ImageVector,
     isStartOpen: Boolean = false,
     onStartClick: () -> Unit,
     onDockItemClick: (DockItem) -> Unit,
@@ -164,6 +166,7 @@ fun ShellBar(
         StartButton(
             isOpen = isStartOpen || state.isStartOpen,
             onClick = onStartClick,
+            glyph = startGlyph,
             modifier = Modifier.align(Alignment.CenterVertically),
         )
 

@@ -62,8 +62,6 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 - `shell/overlay-service.md` — foreground service + `ComposeOverlayWindow`, focus discipline,
   restart recovery. *Status: Planned.*
 - `shell/menu-bar.md` — top bar, launcher-owned Window/View/Help menus. *Status: Planned.*
-- [`shell/start-button-mark.md`](shell/start-button-mark.md) — a rounded triangle that turns to
-  point at its menu. *Status: Accepted · Implemented.*
 - [`shell/bar-alignment.md`](shell/bar-alignment.md) — the dock on the bar's centre line, and an
   Android app-grid Start mark. *Status: Accepted · Implemented.*
 - [`shell/pointer-follow-through.md`](shell/pointer-follow-through.md) — magnification lets go when

@@ -37,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import com.somalapuram.pclauncher.core.apps.AppEntry
 import com.somalapuram.pclauncher.core.apps.AppInventory
+import com.somalapuram.pclauncher.core.design.PcGlyphs
 import com.somalapuram.pclauncher.desktop.BarStateFactory
 import androidx.compose.foundation.clickable
 import androidx.compose.runtime.mutableStateOf
@@ -242,6 +243,7 @@ fun HomeScreen(
             val docked = PinResolution.resolve(apps.entries, pinnedIds)
             ShellBar(
                 state = BarStateFactory.from(apps.copy(entries = docked), iconFor = iconFor),
+                startGlyph = PcGlyphs.Start,
                 isStartOpen = startOpen,
                 onStartClick = { startOpen = !startOpen },
                 onDockItemClick = { item ->

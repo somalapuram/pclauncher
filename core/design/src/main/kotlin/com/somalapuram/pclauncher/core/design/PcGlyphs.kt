@@ -18,6 +18,43 @@ import androidx.compose.ui.unit.dp
 object PcGlyphs {
 
     /**
+     * The Start glyph: a three-by-three grid of dots.
+     *
+     * Was four panes with one detached, described here as "a nod to the Windows four-pane Start
+     * without copying it". On a device that *is* Android, running Android apps, the nod reads as
+     * the wrong operating system, and SRS §1 asks for something that feels like a copy of neither
+     * desktop. The Windows *organisation* — a Start button at the left opening a searchable menu
+     * (§6.4) — is unchanged; only the mark is.
+     *
+     * A dot grid is the app-drawer mark Android launchers have used for a decade, and it survives
+     * being drawn at 20 dp, which a robot silhouette or anything finer would not.
+     */
+    val Start: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "pc_start",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f,
+        ).apply {
+            val centres = listOf(6f, 12f, 18f)
+            val radius = 2.15f
+            centres.forEach { cy ->
+                centres.forEach { cx ->
+                    path(fill = SolidColor(Color.White)) {
+                        // Two half-arcs rather than a circle primitive: the vector builder has no
+                        // circle, and four quadratics drift visibly at this size.
+                        moveTo(cx - radius, cy)
+                        arcToRelative(radius, radius, 0f, true, true, radius * 2f, 0f)
+                        arcToRelative(radius, radius, 0f, true, true, -radius * 2f, 0f)
+                        close()
+                    }
+                }
+            }
+        }.build()
+    }
+
+    /**
      * A gear.
      *
      * Teeth are placed by trigonometry rather than by a rotated path: the vector builder has no
