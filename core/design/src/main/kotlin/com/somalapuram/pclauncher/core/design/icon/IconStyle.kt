@@ -59,6 +59,15 @@ data class IconStyle(
      */
     val innerShade: Color,
     val innerShadeStop: Float,
+    /**
+     * The lightest a tile may be, as relative luminance. 1 disables the ceiling.
+     *
+     * The tile is the app's colour blended into the style's base, which leaves nothing to separate
+     * a *white* app's tile from a white base — and a pale glyph then has no ground. The ceiling
+     * catches only the tiles that come out too light; everything below it keeps the colour it was
+     * tuned to (white-icon-tiles.md).
+     */
+    val maxTileLuminance: Float,
     /** Inset of an adaptive icon's foreground inside the tile. */
     val adaptiveInset: Float,
     /**
@@ -103,6 +112,8 @@ data class IconStyle(
             shadow = Color(0x8C000000),
             shadowRadiusFraction = 0.07f,
             shadowOffsetFraction = 0.04f,
+            // No ceiling: these tiles are near-black, and the question does not arise.
+            maxTileLuminance = 1f,
             adaptiveInset = 0.14f,
             adaptiveForegroundScale = 1.5f,
             legacyInset = 0.17f,
@@ -154,6 +165,10 @@ data class IconStyle(
             shadow = Color(0x8C1B2436),
             shadowRadiusFraction = 0.130f,
             shadowOffsetFraction = 0.050f,
+            // sRGB ~224 against a panel at 250 — the separation the rest of the set already has.
+            // Clock's tile measured 235 before this, the palest of the set and the one whose glyph
+            // is white.
+            maxTileLuminance = 0.75f,
             adaptiveInset = 0.15f,
             adaptiveForegroundScale = 1.5f,
             legacyInset = 0.19f,
@@ -169,7 +184,7 @@ data class IconStyle(
          * The composited bitmap is cached on disk under this, so a style change without a bump
          * serves every existing install the old artwork for good.
          */
-        const val TREATMENT_VERSION = 6
+        const val TREATMENT_VERSION = 7
     }
 }
 
