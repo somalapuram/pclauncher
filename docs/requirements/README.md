@@ -66,6 +66,9 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
   shadow, baked once into the icon cache; dark-glass and soft-clay palettes by theme.
   *Status: Accepted · Implemented.*
 
+- [`design/chrome-tone-flash.md`](design/chrome-tone-flash.md) — the chrome's first frame carries
+  its final polarity. *Status: Accepted · Implemented.*
+
 ### shell
 - `shell/overlay-service.md` — foreground service + `ComposeOverlayWindow`, focus discipline,
   restart recovery. *Status: Planned.*
