@@ -6,6 +6,7 @@ import com.somalapuram.pclauncher.core.apps.AppInventoryRepository
 import com.somalapuram.pclauncher.core.apps.IconCache
 import com.somalapuram.pclauncher.core.data.layout.DesktopLayoutStore
 import com.somalapuram.pclauncher.core.data.pins.PinStore
+import com.somalapuram.pclauncher.core.data.prompts.PromptStore
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
@@ -25,4 +26,6 @@ interface HomeEntryPoint {
     fun pinStore(): PinStore
 
     fun desktopLayoutStore(): DesktopLayoutStore
+
+    fun promptStore(): PromptStore
 }

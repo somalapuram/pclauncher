@@ -19,14 +19,20 @@ import com.somalapuram.pclauncher.core.design.chromeIsDark
 import com.somalapuram.pclauncher.overlay.ChromeHost
 import com.somalapuram.pclauncher.overlay.ShellOverlayService
 import com.somalapuram.pclauncher.overlay.canDrawOverlay
+import com.somalapuram.pclauncher.overlay.OverlayPermissionCard
 import com.somalapuram.pclauncher.overlay.chromeHostFor
+import com.somalapuram.pclauncher.overlay.overlayPermissionIntent
+import com.somalapuram.pclauncher.overlay.shouldAskForOverlay
+import com.somalapuram.pclauncher.core.data.prompts.AskedPrompts
+import com.somalapuram.pclauncher.core.data.prompts.Prompt
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import kotlinx.coroutines.launch
 import com.somalapuram.pclauncher.wallpaper.rememberWallpaperTone
-import androidx.compose.runtime.remember
 import com.somalapuram.pclauncher.core.apps.AppEntry
 import com.somalapuram.pclauncher.core.design.PcTheme
 import android.content.Intent
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import com.somalapuram.pclauncher.desktop.IconResolver
 import com.somalapuram.pclauncher.feature.shell.tray.SystemTraySource
 import com.somalapuram.pclauncher.feature.shell.tray.TrayState
@@ -34,8 +40,6 @@ import com.somalapuram.pclauncher.feature.shell.widget.BindOutcome
 import com.somalapuram.pclauncher.feature.shell.widget.WidgetChoice
 import com.somalapuram.pclauncher.feature.shell.widget.cellsFor
 import com.somalapuram.pclauncher.widget.WidgetController
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import com.somalapuram.pclauncher.di.HomeEntryPoint
 import dagger.hilt.android.EntryPointAccessors
 
@@ -97,13 +101,30 @@ class HomeActivity : ComponentActivity() {
             // wallpaper is an ordinary configuration and is exactly where the old answer looked
             // worst (wallpaper-chrome.md). Falls through to the system setting when the wallpaper
             // says nothing.
-            // Re-read on every resume: the user may have granted or revoked it in Settings while
-            // the shell was in the background.
-            // Started here, but reported by the service: hiding this activity's bar the moment
+
+            // Re-read on every resume, never cached: the user may have granted or revoked
+            // "Display over other apps" in Settings while the shell was in the background — which
+            // is exactly what happens when they come back from the card below
+            // (overlay-permission-ask.md).
+            var canOverlay by remember { mutableStateOf(canDrawOverlay(this@HomeActivity)) }
+            LifecycleResumeEffect(Unit) {
+                canOverlay = canDrawOverlay(this@HomeActivity)
+                onPauseOrDispose {}
+            }
+            // Keyed on the permission, so a grant takes effect on return rather than on next boot.
+            LaunchedEffect(canOverlay) {
+                if (canOverlay) ShellOverlayService.start(this@HomeActivity)
+            }
+            // Started above, but reported by the service: hiding this activity's bar the moment
             // the service is *asked* to start leaves a gap with no bar at all while the window is
             // being added, which shows as a blink on every launch (overlay-service.md).
             val overlayRunning by ShellOverlayService.isChromeUp.collectAsState()
-            LaunchedEffect(Unit) { ShellOverlayService.start(this@HomeActivity) }
+
+            // No store means no memory of an answer, so asking would nag on every launch.
+            val promptStore = remember { runCatching { entryPoint().promptStore() }.getOrNull() }
+            val asked by (promptStore?.asked ?: EmptyAsked)
+                .collectAsState(initial = AskedPrompts(Prompt.entries.toSet()))
+            val prompts = rememberCoroutineScope()
 
             val dark = chromeIsDark(
                 tone = rememberWallpaperTone(),
@@ -165,7 +186,7 @@ class HomeActivity : ComponentActivity() {
                         widgets?.applySize(id, widthDp, heightDp)
                     },
                     chromeInOverlay = chromeHostFor(
-                        hasPermission = canDrawOverlay(this@HomeActivity),
+                        hasPermission = canOverlay,
                         overlayRunning = overlayRunning,
                     ) == ChromeHost.Overlay,
                     deviceName = com.somalapuram.pclauncher.feature.shell.start.displayableDeviceName(
@@ -189,6 +210,26 @@ class HomeActivity : ComponentActivity() {
                     onRetry = { recreate() },
                     safeModeApps = safeModeApps,
                 )
+
+                // After the desktop, so the explanation lands on a shell the user can already see
+                // — the card describes what happens to that bar, and it reads as an answer to
+                // something in front of them rather than a gate before it.
+                if (shouldAskForOverlay(canOverlay, asked)) {
+                    OverlayPermissionCard(
+                        onAllow = {
+                            prompts.launch { promptStore?.markAsked(Prompt.OverlayPermission) }
+                            // A missing Settings screen costs the permission, not the desktop.
+                            runCatching {
+                                startActivity(overlayPermissionIntent(this@HomeActivity))
+                            }
+                        },
+                        // Dismissing *is* the answer, and it is remembered. The consequence was
+                        // stated in the card, so it has been said once and is not said again.
+                        onNotNow = {
+                            prompts.launch { promptStore?.markAsked(Prompt.OverlayPermission) }
+                        },
+                    )
+                }
             }
         }
     }
@@ -353,6 +394,15 @@ private const val DesktopCellDp = 96
 private const val DesktopCellHeightDp = 104
 
 /** Stand-ins for a shell that could not be built, so the desktop still renders. */
+/**
+ * No prompt store means no memory of an answer, so nothing is asked.
+ *
+ * Reported as "already asked" rather than "never asked": a card we cannot record the dismissal of
+ * would come back on every launch (overlay-permission-ask.md requirement 3).
+ */
+private val EmptyAsked =
+    kotlinx.coroutines.flow.MutableStateFlow(AskedPrompts(Prompt.entries.toSet()))
+
 private val EmptyInventory = kotlinx.coroutines.flow.MutableStateFlow(
     com.somalapuram.pclauncher.core.apps.AppInventory(),
 )

@@ -8,6 +8,8 @@ import com.somalapuram.pclauncher.core.data.pins.DataStorePinStore
 import com.somalapuram.pclauncher.core.data.layout.DataStoreDesktopLayoutStore
 import com.somalapuram.pclauncher.core.data.layout.DesktopLayoutStore
 import com.somalapuram.pclauncher.core.data.pins.PinStore
+import com.somalapuram.pclauncher.core.data.prompts.DataStorePromptStore
+import com.somalapuram.pclauncher.core.data.prompts.PromptStore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -17,6 +19,7 @@ import javax.inject.Singleton
 
 private val Context.pinsDataStore: DataStore<Preferences> by preferencesDataStore(name = "pins")
 private val Context.layoutDataStore: DataStore<Preferences> by preferencesDataStore(name = "desktop_layout")
+private val Context.promptsDataStore: DataStore<Preferences> by preferencesDataStore(name = "prompts")
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -31,4 +34,9 @@ object PinsModule {
     @Singleton
     fun desktopLayoutStore(@ApplicationContext context: Context): DesktopLayoutStore =
         DataStoreDesktopLayoutStore(context.layoutDataStore)
+
+    @Provides
+    @Singleton
+    fun promptStore(@ApplicationContext context: Context): PromptStore =
+        DataStorePromptStore(context.promptsDataStore)
 }
