@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
@@ -18,16 +19,14 @@ import androidx.compose.ui.unit.dp
 object PcGlyphs {
 
     /**
-     * The Start glyph: a three-by-three grid of dots.
+     * The Start mark: a rounded triangle, drawn pointing **down**.
      *
-     * Was four panes with one detached, described here as "a nod to the Windows four-pane Start
-     * without copying it". On a device that *is* Android, running Android apps, the nod reads as
-     * the wrong operating system, and SRS §1 asks for something that feels like a copy of neither
-     * desktop. The Windows *organisation* — a Start button at the left opening a searchable menu
-     * (§6.4) — is unchanged; only the mark is.
+     * Was a three-by-three grid of dots, which said "apps" but said nothing about what pressing the
+     * button does or which state it is in. A triangle says both: down at rest, and turned up while
+     * the menu is open it becomes that menu's own indicator (start-button-mark.md).
      *
-     * A dot grid is the app-drawer mark Android launchers have used for a decade, and it survives
-     * being drawn at 20 dp, which a robot silhouette or anything finer would not.
+     * Rounded by stroking the same path it fills, with round joins — the shell has no other
+     * hard-cornered mark, and a bare triangle would be conspicuous among squircles.
      */
     val Start: ImageVector by lazy {
         ImageVector.Builder(
@@ -37,19 +36,19 @@ object PcGlyphs {
             viewportWidth = 24f,
             viewportHeight = 24f,
         ).apply {
-            val centres = listOf(6f, 12f, 18f)
-            val radius = 2.15f
-            centres.forEach { cy ->
-                centres.forEach { cx ->
-                    path(fill = SolidColor(Color.White)) {
-                        // Two half-arcs rather than a circle primitive: the vector builder has no
-                        // circle, and four quadratics drift visibly at this size.
-                        moveTo(cx - radius, cy)
-                        arcToRelative(radius, radius, 0f, true, true, radius * 2f, 0f)
-                        arcToRelative(radius, radius, 0f, true, true, -radius * 2f, 0f)
-                        close()
-                    }
-                }
+            path(
+                fill = SolidColor(Color.White),
+                stroke = SolidColor(Color.White),
+                // The stroke is what rounds the corners, so the path is drawn inside the intended
+                // silhouette and the stroke grows it back out.
+                strokeLineWidth = 3.2f,
+                strokeLineJoin = StrokeJoin.Round,
+                strokeLineCap = StrokeCap.Round,
+            ) {
+                moveTo(6.9f, 8.6f)
+                lineTo(17.1f, 8.6f)
+                lineTo(12f, 15.8f)
+                close()
             }
         }.build()
     }

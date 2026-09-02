@@ -62,6 +62,8 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 - `shell/overlay-service.md` — foreground service + `ComposeOverlayWindow`, focus discipline,
   restart recovery. *Status: Planned.*
 - `shell/menu-bar.md` — top bar, launcher-owned Window/View/Help menus. *Status: Planned.*
+- [`shell/start-button-mark.md`](shell/start-button-mark.md) — a rounded triangle that turns to
+  point at its menu. *Status: Accepted · Implemented.*
 - [`shell/bar-alignment.md`](shell/bar-alignment.md) — the dock on the bar's centre line, and an
   Android app-grid Start mark. *Status: Accepted · Implemented.*
 - [`shell/pointer-follow-through.md`](shell/pointer-follow-through.md) — magnification lets go when
@@ -74,6 +76,8 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
   desktop or the bar. *Status: Accepted · Implemented.*
 - [`shell/context-menu.md`](shell/context-menu.md) — menus that disturb nothing and match the
   shell's surfaces. *Status: Accepted · Implemented.*
+- [`shell/overlay-service.md`](shell/overlay-service.md) — the chrome in a `TYPE_APPLICATION_OVERLAY`
+  window so it stays above app windows. *Status: Accepted · In progress.*
 - [`shell/dock-taskbar.md`](shell/dock-taskbar.md) — one bar: Start button, magnifying dock,
   taskbar window chips, Show Desktop. Rendered in the HOME activity first; the overlay service
   hosts the same composables later. *Status: Accepted · Partially implemented.*

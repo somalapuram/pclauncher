@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -54,6 +55,14 @@ fun StartButton(
         else -> Color.Transparent
     }
     val background by animateColorAsState(target, label = "start-bg")
+
+    // Follows the menu's state rather than the click, so a menu dismissed by clicking elsewhere
+    // turns the mark back too (start-button-mark.md).
+    val markRotation by animateFloatAsState(
+        targetValue = if (isOpen) 180f else 0f,
+        animationSpec = PcMotion.Surface,
+        label = "start-mark-turn",
+    )
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.92f else 1f,
         animationSpec = PcMotion.DockMagnify,
@@ -89,7 +98,11 @@ fun StartButton(
                 imageVector = glyph,
                 contentDescription = null,
                 tint = if (isOpen) colors.onAccent else colors.onSurface,
-                modifier = Modifier.size(20.dp),
+                // Rotated, not swapped: turning one mark reads as the same object moving, where
+                // cross-fading two glyphs reads as a substitution.
+                modifier = Modifier
+                    .size(20.dp)
+                    .graphicsLayer { rotationZ = markRotation },
             )
         }
     }
