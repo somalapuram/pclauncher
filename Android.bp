@@ -66,6 +66,31 @@ android_app {
     // it, which is what that module is named for.
     sdk_version: "current",
 
+    // Sign with the platform key.
+    //
+    // This is what pre-grants the launcher's permissions, and it is chosen over
+    // `privileged: true` + a privapp allowlist for one concrete reason. The
+    // protection levels, read out of frameworks/base/core/res/AndroidManifest.xml:
+    //
+    //   SYSTEM_ALERT_WINDOW   signature|setup|appop|installer|pre23|development
+    //   PACKAGE_USAGE_STATS   signature|privileged|development|appop|retailDemo
+    //   BIND_APPWIDGET        signature|privileged
+    //   REBOOT                signature|privileged
+    //   SHUTDOWN              signature|privileged|role
+    //
+    // SYSTEM_ALERT_WINDOW has no `privileged` flag. A privileged install would
+    // therefore grant four of the five and miss the one the whole shell rests
+    // on -- the dock and the menu bar are TYPE_APPLICATION_OVERLAY windows and
+    // do not exist without it (SRS 5.1). `signature` is the only flag all five
+    // share, so the platform certificate is the single mechanism that grants
+    // the set. It also removes the first-run consent screens for overlay and
+    // usage access, and the ACTION_APPWIDGET_BIND dialog when a widget is added.
+    //
+    // POST_NOTIFICATIONS is `dangerous` and is not covered by any signature:
+    // it is granted separately in etc/default-permissions/, see
+    // device/pcx86/pc_x86_64/default-permissions_pclauncher.xml.
+    certificate: "platform",
+
     // Replace Launcher3QuickStep rather than sit alongside it.
     //
     // Launcher3QuickStep is not named in this device's PRODUCT_PACKAGES: it

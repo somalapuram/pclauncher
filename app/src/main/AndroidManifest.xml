@@ -10,7 +10,7 @@
   one manifest, so main carries the Gradle form and this branch carries the
   Soong form. Keep it in step with the namespace on main.
 
-  xmlns:tools comes from main and is kept: tools:ignore is used on the two
+  xmlns:tools comes from main and is kept: tools:ignore is used on the
   protected permissions below, so dropping the namespace would break the
   manifest rather than merely lose a lint hint.
 -->
