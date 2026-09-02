@@ -4,7 +4,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
@@ -17,41 +16,6 @@ import androidx.compose.ui.unit.dp
  * per state without a second asset.
  */
 object PcGlyphs {
-
-    /**
-     * The Start mark: a rounded triangle, drawn pointing **down**.
-     *
-     * Was a three-by-three grid of dots, which said "apps" but said nothing about what pressing the
-     * button does or which state it is in. A triangle says both: down at rest, and turned up while
-     * the menu is open it becomes that menu's own indicator (start-button-mark.md).
-     *
-     * Rounded by stroking the same path it fills, with round joins — the shell has no other
-     * hard-cornered mark, and a bare triangle would be conspicuous among squircles.
-     */
-    val Start: ImageVector by lazy {
-        ImageVector.Builder(
-            name = "pc_start",
-            defaultWidth = 24.dp,
-            defaultHeight = 24.dp,
-            viewportWidth = 24f,
-            viewportHeight = 24f,
-        ).apply {
-            path(
-                fill = SolidColor(Color.White),
-                stroke = SolidColor(Color.White),
-                // The stroke is what rounds the corners, so the path is drawn inside the intended
-                // silhouette and the stroke grows it back out.
-                strokeLineWidth = 3.2f,
-                strokeLineJoin = StrokeJoin.Round,
-                strokeLineCap = StrokeCap.Round,
-            ) {
-                moveTo(6.9f, 8.6f)
-                lineTo(17.1f, 8.6f)
-                lineTo(12f, 15.8f)
-                close()
-            }
-        }.build()
-    }
 
     /**
      * A gear.

@@ -25,7 +25,9 @@ hard-cornered thing among squircle icons, rounded panels and a rounded bar.
 
 ## Requirement
 
-1. **The Start mark is a triangle with rounded corners.**
+1. **The Start mark is a triangle with rounded corners**, carried inside a tile like every other
+   item in the bar — the bar reads as a row of equals, which a bare triangle among squircles did
+   not.
 2. **It points down when the menu is closed.**
 3. **It points up while the menu is open.**
 4. **The change between them is animated**, spring-based and short, in both directions.
@@ -52,5 +54,12 @@ hard-cornered thing among squircle icons, rounded panels and a rounded bar.
 
 - **Why rotate rather than swap two glyphs.** Rotating one mark is what makes it read as the same
   object turning; two glyphs cross-fading is a substitution, and the eye reads it as such.
+- **The mark is a `Shape`, not a vector glyph.** Its corner rounding is then a value rather than a
+  hand-drawn path, and the rounding maths is the same one the tests pin — a bad path still renders
+  as *something*, so it is the part worth asserting.
+- **Three shapes were tried before this one:** a bare triangle with a hairline, which read as a
+  caret cut out of the bar; the same filled with an accent gradient and a shadow; then that with a
+  lit edge. Each was a solid object and none of them belonged, because every other thing in the bar
+  is a tile. The mark inside a tile was the answer.
 - **Not in this slice:** a mark that follows the bar to a left or right screen edge, or an animation
   tied to the menu's own open progress rather than its state.
