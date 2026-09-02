@@ -66,6 +66,8 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
   Android app-grid Start mark. *Status: Accepted · Implemented.*
 - [`shell/pointer-follow-through.md`](shell/pointer-follow-through.md) — magnification lets go when
   the pointer leaves, and the drag ghost sits under it. *Status: Implemented (hover unverified).*
+- [`shell/bar-outline-order.md`](shell/bar-outline-order.md) — the bar's edge draws behind icons
+  that rise through it. *Status: Implemented (overlap unverified).*
 - [`shell/dock-magnification-fixes.md`](shell/dock-magnification-fixes.md) — hover magnifies the
   icon under the pointer and leaves the bar’s height alone. *Status: Implemented (hover unverified).*
 - [`shell/shell-insets.md`](shell/shell-insets.md) — the on-screen keyboard does not move the
