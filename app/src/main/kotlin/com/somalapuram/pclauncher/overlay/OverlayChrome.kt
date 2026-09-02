@@ -53,7 +53,9 @@ fun OverlayBar(
     val context = LocalContext.current
     val inventory by (shell?.inventory ?: EmptyInventory).collectAsState()
     val pins by (shell?.pins ?: EmptyPins).collectAsState()
-    val launcher = remember(context) { AppLauncher(context.applicationContext) }
+    val launcher = remember(context, shell) {
+        AppLauncher(context.applicationContext) { shell?.recordLaunch(it) }
+    }
     val docked = PinResolution.resolve(inventory.entries, pins.items.map { it.component })
 
     Box(
@@ -105,7 +107,10 @@ fun OverlayStartMenu(
 ) {
     val context = LocalContext.current
     val inventory by (shell?.inventory ?: EmptyInventory).collectAsState()
-    val launcher = remember(context) { AppLauncher(context.applicationContext) }
+    val recent by (shell?.recent ?: EmptyRecent).collectAsState()
+    val launcher = remember(context, shell) {
+        AppLauncher(context.applicationContext) { shell?.recordLaunch(it) }
+    }
 
     Box(
         modifier = Modifier
@@ -122,6 +127,7 @@ fun OverlayStartMenu(
         ) {
             StartMenu(
                 entries = inventory.entries,
+                recent = recent,
                 isPinned = { shell?.isPinned(it) == true },
                 onLaunch = { launcher.launch(it); onDismiss() },
                 onTogglePin = { shell?.togglePin(it) },
@@ -154,3 +160,4 @@ private val EmptyInventory =
     kotlinx.coroutines.flow.MutableStateFlow(com.somalapuram.pclauncher.core.apps.AppInventory())
 private val EmptyPins =
     kotlinx.coroutines.flow.MutableStateFlow(com.somalapuram.pclauncher.core.data.pins.Pins())
+private val EmptyRecent = kotlinx.coroutines.flow.MutableStateFlow(emptyList<AppEntry>())

@@ -35,6 +35,8 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 - [`launch/app-inventory.md`](launch/app-inventory.md) — `LauncherApps` inventory keyed by
   (component, user), icon cache, work/private profiles, incremental deltas, usage/recency.
   *Status: Accepted · Implemented.*
+- [`launch/recent-apps.md`](launch/recent-apps.md) — the Start menu's Recent row, wired to the
+  usage counters phase 2 built. *Status: Accepted · Implemented.*
 
 ### windows
 - `windows/capability-tiers.md` — `WindowBackend` interface + T0, runtime tier detection, the

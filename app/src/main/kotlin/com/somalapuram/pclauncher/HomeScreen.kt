@@ -78,6 +78,8 @@ import com.somalapuram.pclauncher.core.design.SurfaceTreatment
 fun HomeScreen(
     outcome: StartupOutcome,
     inventory: StateFlow<AppInventory> = MutableStateFlow(AppInventory()),
+    /** Most recently launched first, for the Start menu's Recent row (recent-apps.md). */
+    recentApps: StateFlow<List<AppEntry>> = MutableStateFlow(emptyList()),
     pins: StateFlow<Pins> = MutableStateFlow(Pins()),
     desktopLayout: StateFlow<DesktopLayout> = MutableStateFlow(DesktopLayout()),
     iconFor: (AppEntry) -> android.graphics.drawable.Drawable? = { null },
@@ -118,6 +120,7 @@ fun HomeScreen(
     safeModeApps: List<AppEntry> = emptyList(),
 ) {
     val apps by inventory.collectAsState()
+    val recent by recentApps.collectAsState()
     val currentPins by pins.collectAsState()
     val layout by desktopLayout.collectAsState()
     // Reported by the desktop once it has measured, so a drop can be turned into a cell.
@@ -324,6 +327,7 @@ fun HomeScreen(
         ) {
             StartMenu(
                 entries = apps.entries,
+                recent = recent,
                 isPinned = isPinned,
                 onLaunch = { onLaunchApp(it); startOpen = false },
                 onTogglePin = onTogglePin,

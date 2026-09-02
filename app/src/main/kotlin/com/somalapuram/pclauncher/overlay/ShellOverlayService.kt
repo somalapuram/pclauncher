@@ -192,6 +192,8 @@ class ShellOverlayService : Service() {
             layoutStore = entry.desktopLayoutStore(),
             scope = scope,
             userSerial = 0L,
+            usageStore = entry.usageStore(),
+            usageSignals = entry.usageSignals(),
         )
     }
 

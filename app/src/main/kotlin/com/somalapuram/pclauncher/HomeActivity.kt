@@ -87,7 +87,9 @@ class HomeActivity : ComponentActivity() {
 
         // The inventory now belongs to the ViewModel, which also owns pin state so the dock, the
         // Start menu and the desktop cannot disagree about what is pinned.
-        val launcher = AppLauncher(applicationContext)
+        // Recording hangs off the launcher rather than each surface, so the desktop, the dock and
+        // the Start menu cannot disagree about what was opened (recent-apps.md requirement 4).
+        val launcher = AppLauncher(applicationContext) { shell?.recordLaunch(it) }
         widgets?.startListening()
 
         val traySource = SystemTraySource(applicationContext)
@@ -139,6 +141,7 @@ class HomeActivity : ComponentActivity() {
             PcTheme(darkTheme = dark) {
                 HomeScreen(
                     inventory = shell?.inventory ?: EmptyInventory,
+                    recentApps = shell?.recent ?: EmptyRecent,
                     pins = shell?.pins ?: EmptyPins,
                     desktopLayout = shell?.layout ?: EmptyLayout,
                     iconFor = iconFor,
@@ -259,6 +262,8 @@ class HomeActivity : ComponentActivity() {
             layoutStore = entryPoint.desktopLayoutStore(),
             scope = lifecycleScope,
             userSerial = userSerial,
+            usageStore = entryPoint.usageStore(),
+            usageSignals = entryPoint.usageSignals(),
         )
     }
 
@@ -402,6 +407,9 @@ private const val DesktopCellHeightDp = 104
  */
 private val EmptyAsked =
     kotlinx.coroutines.flow.MutableStateFlow(AskedPrompts(Prompt.entries.toSet()))
+
+private val EmptyRecent =
+    kotlinx.coroutines.flow.MutableStateFlow(emptyList<com.somalapuram.pclauncher.core.apps.AppEntry>())
 
 private val EmptyInventory = kotlinx.coroutines.flow.MutableStateFlow(
     com.somalapuram.pclauncher.core.apps.AppInventory(),

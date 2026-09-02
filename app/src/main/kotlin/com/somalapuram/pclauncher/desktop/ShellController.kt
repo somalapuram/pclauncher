@@ -3,6 +3,9 @@ package com.somalapuram.pclauncher.desktop
 import com.somalapuram.pclauncher.core.apps.AppEntry
 import com.somalapuram.pclauncher.core.apps.AppInventory
 import com.somalapuram.pclauncher.core.apps.AppInventoryRepository
+import com.somalapuram.pclauncher.core.apps.UsageSignalSource
+import com.somalapuram.pclauncher.core.apps.UsageStore
+import com.somalapuram.pclauncher.core.apps.recentlyUsed
 import com.somalapuram.pclauncher.core.data.pins.Pin
 import com.somalapuram.pclauncher.core.data.pins.PinStore
 import com.somalapuram.pclauncher.core.data.layout.DesktopCell
@@ -17,7 +20,10 @@ import com.somalapuram.pclauncher.core.data.layout.resizedBy
 import com.somalapuram.pclauncher.core.data.layout.widgetPlacementId
 import com.somalapuram.pclauncher.core.data.pins.Pins
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -40,6 +46,14 @@ class ShellController(
     private val layoutStore: DesktopLayoutStore,
     private val scope: CoroutineScope,
     private val userSerial: Long,
+    /** Where a launch is written. `None` in safe mode, which must touch no store (GATE 4). */
+    private val usageStore: UsageStore = UsageStore.None,
+    /**
+     * Where recency is read. Separate from [usageStore] because the two can differ: with usage
+     * access granted the signals come from the system and know about launches that predate us,
+     * while what we *write* is always our own counters.
+     */
+    private val usageSignals: UsageSignalSource = UsageSignalSource { emptyMap() },
 ) {
     val inventory: StateFlow<AppInventory> = repository.inventory
 
@@ -48,6 +62,20 @@ class ShellController(
 
     private val _layout = MutableStateFlow(DesktopLayout())
     val layout: StateFlow<DesktopLayout> = _layout.asStateFlow()
+
+    /** The Start menu's Recent row, most recently launched first (recent-apps.md). */
+    private val _recent = MutableStateFlow<List<AppEntry>>(emptyList())
+    val recent: StateFlow<List<AppEntry>> = _recent.asStateFlow()
+
+    /**
+     * Bumped by each recorded launch.
+     *
+     * Signals are read, not observed — `UsageStatsManager` has no change callback and the local
+     * counters are a plain key-value store. So the read is re-triggered by the one event that can
+     * change the answer, which is what makes a launch show up in the row without reopening the menu
+     * (recent-apps.md requirement 5).
+     */
+    private val usageRevision = MutableStateFlow(0L)
 
     fun start() {
         repository.start(scope)
@@ -59,6 +87,35 @@ class ShellController(
             // Likewise: an unreadable layout costs the arrangement, not the desktop — icons fall
             // back to auto-placement (GATE 4).
             runCatching { layoutStore.layout.collect { _layout.value = it } }
+        }
+        scope.launch {
+            // Recomputed when the inventory changes *or* a launch is recorded — an app that is
+            // uninstalled has to leave the row, and one just opened has to enter it.
+            runCatching {
+                combine(repository.inventory, usageRevision) { inventory, _ -> inventory }
+                    .collect { inventory ->
+                        // `signals()` reads a DataStore synchronously and says so: never on the
+                        // main thread.
+                        _recent.value = withContext(Dispatchers.IO) {
+                            recentlyUsed(inventory.entries, usageSignals.signals(), RecentAppLimit)
+                        }
+                    }
+            }
+        }
+    }
+
+    /**
+     * Note that an app was launched.
+     *
+     * Fire-and-forget on the shell's own scope: the caller is on the main thread having just
+     * started an activity, and must not wait for a disk write (recent-apps.md requirement 9).
+     */
+    fun recordLaunch(entry: AppEntry, atMillis: Long = System.currentTimeMillis()) {
+        scope.launch {
+            runCatching { usageStore.recordLaunch(entry.key, atMillis) }
+            // Bumped even on a failed write: the system source may still have seen the launch, and
+            // a re-read costs nothing.
+            usageRevision.value += 1
         }
     }
 
@@ -179,4 +236,14 @@ class ShellController(
     fun stop() = repository.stop()
 
     private fun pinIdOf(entry: AppEntry) = entry.key.component.flattenToShortString()
+
+    private companion object {
+        /**
+         * One row of the Start menu's grid.
+         *
+         * Tied to `StartColumns` by intent rather than by import — `core` must not depend on
+         * `feature` — so a change there wants a change here (recent-apps.md notes).
+         */
+        const val RecentAppLimit = 5
+    }
 }
