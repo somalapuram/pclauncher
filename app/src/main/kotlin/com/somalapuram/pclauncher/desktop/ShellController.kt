@@ -105,6 +105,18 @@ class ShellController(
     }
 
     /**
+     * Re-read the usage signals.
+     *
+     * The source can change without anything here changing: the user grants or revokes usage
+     * access on a Settings screen, and `SystemUsageSignals` starts or stops answering. Nothing in
+     * the inventory or the counters moves, so without a nudge the Recent row would keep showing
+     * what the old source said until the next launch (usage-access-ask.md requirement 6).
+     */
+    fun refreshUsage() {
+        scope.launch { usageRevision.value += 1 }
+    }
+
+    /**
      * Note that an app was launched.
      *
      * Fire-and-forget on the shell's own scope: the caller is on the main thread having just

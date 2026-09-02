@@ -116,6 +116,11 @@ class ShellOverlayService : Service() {
 
     private fun showMenu(cache: com.somalapuram.pclauncher.core.apps.IconCache?) {
         if (menuWindow != null) return
+        // The Recent row is about to be drawn, and usage access may have been granted or revoked
+        // since it was last read — there is no callback for that, and this service has no resume to
+        // hang one on. Re-reading as the menu opens is both the cheapest and the latest possible
+        // moment (usage-access-ask.md requirement 6).
+        shell?.refreshUsage()
         // Focusable only here, and only while it is up: a focusable window at rest would take
         // every keystroke from the app the user is actually typing into.
         val menu = ComposeOverlayWindow(

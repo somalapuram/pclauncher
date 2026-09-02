@@ -10,6 +10,9 @@ package com.somalapuram.pclauncher.core.data.prompts
 enum class Prompt {
     /** "Display over other apps", so the bar stays visible above app windows. */
     OverlayPermission,
+
+    /** Usage access, so Recent knows about apps opened outside the shell. */
+    UsageAccess,
 }
 
 /** Which prompts have been shown. Unknown names are dropped, so a downgrade cannot crash a read. */

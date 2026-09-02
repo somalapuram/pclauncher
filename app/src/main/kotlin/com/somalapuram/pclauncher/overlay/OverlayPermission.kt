@@ -1,8 +1,6 @@
 package com.somalapuram.pclauncher.overlay
 
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.provider.Settings
 
 /**
@@ -15,13 +13,6 @@ import android.provider.Settings
  */
 fun canDrawOverlay(context: Context): Boolean =
     runCatching { Settings.canDrawOverlays(context) }.getOrDefault(false)
-
-/** The Settings screen that grants it, scoped to this app rather than the whole list. */
-fun overlayPermissionIntent(context: Context): Intent =
-    Intent(
-        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-        Uri.fromParts("package", context.packageName, null),
-    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
 /**
  * Where the chrome should be drawn.

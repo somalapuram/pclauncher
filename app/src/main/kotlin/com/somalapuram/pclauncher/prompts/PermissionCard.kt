@@ -1,4 +1,4 @@
-package com.somalapuram.pclauncher.overlay
+package com.somalapuram.pclauncher.prompts
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -20,18 +20,20 @@ import com.somalapuram.pclauncher.core.design.LocalPcColors
 import com.somalapuram.pclauncher.core.design.PcCorners
 
 /**
- * The one-time explanation for "Display over other apps".
+ * A one-time explanation for a permission the user has to grant in Settings.
  *
- * Written for someone who has never heard of `SYSTEM_ALERT_WINDOW`: it says what they get and what
- * they lose, in that order, and never names the permission the way the platform does. The Settings
- * screen they land on says "Display over other apps", so that phrase — and only that phrase —
- * appears here too, or the toggle they arrive at looks like a different thing entirely.
+ * Written for someone who has never heard of the permission's real name: it says what they get and
+ * what they lose, in that order. The one platform phrase that does appear is the label of the
+ * toggle they will land on — without it, the screen they arrive at looks like a different thing
+ * entirely.
  *
- * Dismissible by design. The shell works without this permission; the card must never be a wall in
- * front of the desktop (GATE 4).
+ * Dismissible by design. The shell works without any of these; a card must never be a wall in front
+ * of the desktop (GATE 4).
  */
 @Composable
-fun OverlayPermissionCard(
+fun PermissionCard(
+    title: String,
+    body: String,
     onAllow: () -> Unit,
     onNotNow: () -> Unit,
 ) {
@@ -52,17 +54,11 @@ fun OverlayPermissionCard(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
-                    text = "Keep the taskbar on top",
+                    text = title,
                     color = colors.onSurface,
                     fontWeight = FontWeight.SemiBold,
                 )
-                Text(
-                    text = "Turn on \"Display over other apps\" and the taskbar, Start menu and " +
-                        "system tray stay visible while you use apps.\n\n" +
-                        "Without it they show only on the desktop, and anything you open covers " +
-                        "them. You can change this later in Settings.",
-                    color = colors.onSurfaceMuted,
-                )
+                Text(text = body, color = colors.onSurfaceMuted)
                 Row(
                     modifier = Modifier.padding(top = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),

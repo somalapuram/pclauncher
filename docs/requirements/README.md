@@ -37,6 +37,8 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
   *Status: Accepted · Implemented.*
 - [`launch/recent-apps.md`](launch/recent-apps.md) — the Start menu's Recent row, wired to the
   usage counters phase 2 built. *Status: Accepted · Implemented.*
+- [`launch/usage-access-ask.md`](launch/usage-access-ask.md) — the second first-run card, sequenced
+  so two are never on screen at once. *Status: Accepted · Implemented.*
 
 ### windows
 - `windows/capability-tiers.md` — `WindowBackend` interface + T0, runtime tier detection, the
