@@ -1,3 +1,7 @@
+> **Mechanism superseded by [`tray-popover-host.md`](tray-popover-host.md)** — the two placement
+> rules here still stand; the panel is now placed by the host that draws it rather than by a
+> `Popup` anchored inside the bar.
+
 # Shell — Where the Tray Popover Sits, and How It Presses
 
 Status: **Implemented** (2026-08-24)

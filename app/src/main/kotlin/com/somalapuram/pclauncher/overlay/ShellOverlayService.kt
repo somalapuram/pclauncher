@@ -20,6 +20,8 @@ import com.somalapuram.pclauncher.core.design.chromeIsDark
 import com.somalapuram.pclauncher.desktop.IconResolver
 import com.somalapuram.pclauncher.feature.shell.tray.SystemTrayActions
 import com.somalapuram.pclauncher.feature.shell.tray.SystemTraySource
+import com.somalapuram.pclauncher.feature.shell.menu.ShellMenu
+import com.somalapuram.pclauncher.feature.shell.menu.toggled
 import com.somalapuram.pclauncher.wallpaper.rememberWallpaperTone
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CoroutineScope
@@ -53,13 +55,15 @@ class ShellOverlayService : Service() {
     private var traySource: SystemTraySource? = null
 
     /**
-     * Hoisted out of the composition because two windows read it — the bar draws the Start button
+     * Which menu is open.
+     *
+     * Hoisted out of the composition because two windows read it — the bar draws its buttons
      * pressed, and the service adds and removes the menu window from it — and out of the *instance*
      * because a third caller is not in this process's UI at all: the desktop's Ctrl+Esc, which is
      * heard by the home activity's window and has to open a menu in ours
      * (shell-shortcuts.md requirement 1).
      */
-    private val startOpen get() = startOpenState
+    private val openMenu get() = openMenuState
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -91,14 +95,14 @@ class ShellOverlayService : Service() {
             Chrome(cache) { iconFor ->
                 val trayState by remember { tray.trayState() }
                     .collectAsState(initial = com.somalapuram.pclauncher.feature.shell.tray.TrayState())
-                val open by startOpen.collectAsState()
+                val menu by openMenu.collectAsState()
                 OverlayBar(
                     shell = controller,
                     iconFor = iconFor,
                     tray = trayState,
                     onTrayAction = { trayActions.perform(it) },
-                    isStartOpen = open,
-                    onStartToggle = { startOpen.value = !startOpen.value },
+                    openMenu = menu,
+                    onToggleMenu = { openMenu.value = openMenu.value.toggled(it) },
                 )
             }
         }
@@ -113,11 +117,15 @@ class ShellOverlayService : Service() {
         // The menu lives in a window of its own, added when it opens and removed when it closes.
         // Toggling one window's size and focus instead would blink the bar on every click.
         mainScope.launch {
-            startOpen.collect { open -> if (open) showMenu(cache) else hideMenu() }
+            openMenu.collect { menu -> if (menu.isOpen) showMenu(cache, tray, trayActions) else hideMenu() }
         }
     }
 
-    private fun showMenu(cache: com.somalapuram.pclauncher.core.apps.IconCache?) {
+    private fun showMenu(
+        cache: com.somalapuram.pclauncher.core.apps.IconCache?,
+        tray: SystemTraySource,
+        trayActions: SystemTrayActions,
+    ) {
         if (menuWindow != null) return
         // The Recent row is about to be drawn, and usage access may have been granted or revoked
         // since it was last read — there is no callback for that, and this service has no resume to
@@ -133,18 +141,25 @@ class ShellOverlayService : Service() {
         )
         val shown = menu.show {
             Chrome(cache) { iconFor ->
-                OverlayStartMenu(
+                val which by openMenu.collectAsState()
+                val trayState by remember { tray.trayState() }
+                    .collectAsState(initial = com.somalapuram.pclauncher.feature.shell.tray.TrayState())
+                OverlayMenuLayer(
+                    menu = which,
                     shell = shell,
                     iconFor = iconFor,
+                    tray = trayState,
+                    onTrayAction = { trayActions.perform(it) },
                     onPowerAction = {
                         com.somalapuram.pclauncher.power.performPowerAction(applicationContext, it)
                     },
-                    onDismiss = { startOpen.value = false },
+                    onToggleMenu = { openMenu.value = openMenu.value.toggled(it) },
+                    onDismiss = { openMenu.value = ShellMenu.None },
                 )
             }
         }
-        // A menu that could not be shown must not leave the Start button stuck pressed.
-        if (shown) menuWindow = menu else startOpen.value = false
+        // A menu that could not be shown must not leave its button stuck pressed.
+        if (shown) menuWindow = menu else openMenu.value = ShellMenu.None
     }
 
     private fun hideMenu() {
@@ -183,7 +198,7 @@ class ShellOverlayService : Service() {
 
     override fun onDestroy() {
         // Left open, the flag would reopen the menu the moment a new chrome window appeared.
-        startOpenState.value = false
+        openMenuState.value = ShellMenu.None
         hideMenu()
         barWindow?.dismiss()
         barWindow = null
@@ -237,7 +252,7 @@ class ShellOverlayService : Service() {
 
         private val chromeUp = MutableStateFlow(false)
 
-        private val startOpenState = MutableStateFlow(false)
+        private val openMenuState = MutableStateFlow(ShellMenu.None)
 
         /**
          * Open the overlay's Start menu, or close it.
@@ -246,7 +261,7 @@ class ShellOverlayService : Service() {
          * activity's own menu is the one on screen (GATE 4).
          */
         fun toggleStart() {
-            startOpenState.value = !startOpenState.value
+            openMenuState.value = openMenuState.value.toggled(ShellMenu.Start)
         }
 
         /**

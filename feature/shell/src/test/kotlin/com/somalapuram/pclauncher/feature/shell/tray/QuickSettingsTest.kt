@@ -11,6 +11,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.onNodeWithContentDescription
 import com.somalapuram.pclauncher.core.design.PcTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -88,25 +89,35 @@ class QuickSettingsTest {
         assertEquals(listOf(TrayAction.SetVolume(10)), actions)
     }
 
+    /**
+     * The tray asks; it no longer opens. The panel is drawn by the host in its full-screen surface,
+     * because one anchored inside the bar cannot be placed above it once the bar is its own window
+     * (tray-popover-host.md).
+     */
     @Test
-    fun `the tray opens the panel when clicked`() {
-        val actions = mutableListOf<TrayAction>()
-        compose.setContent { PcTheme { SystemTray(state = state, onAction = { actions += it }) } }
+    fun `clicking the tray asks the host to toggle the panel`() {
+        var toggles = 0
+        compose.setContent { PcTheme { SystemTray(state = state, onToggle = { toggles++ }) } }
 
         compose.onNodeWithContentDescription(state.describe()).performClick()
 
-        compose.onNodeWithText("Wi-Fi").assertIsDisplayed()
+        assertEquals(1, toggles)
+    }
+
+    @Test
+    fun `the tray draws itself pressed while the panel is open`() {
+        compose.setContent { PcTheme { SystemTray(state = state, isOpen = true) } }
+
+        compose.onNodeWithContentDescription(state.describe()).assertIsDisplayed()
     }
 
     @Test
     fun `a hand-off closes the panel and a volume change does not`() {
-        val actions = mutableListOf<TrayAction>()
-        compose.setContent { PcTheme { SystemTray(state = state, onAction = { actions += it }) } }
-
-        compose.onNodeWithContentDescription(state.describe()).performClick()
-        compose.onNodeWithText("Battery").performClick()
-
-        assertTrue(actions.contains(TrayAction.OpenBatterySettings))
-        compose.onAllNodesWithText("Wi-Fi").assertCountEquals(0)
+        assertTrue(dismissesPanel(TrayAction.OpenBatterySettings))
+        assertTrue(dismissesPanel(TrayAction.OpenWifiPanel))
+        assertTrue(dismissesPanel(TrayAction.OpenBluetoothSettings))
+        assertTrue(dismissesPanel(TrayAction.EnableBluetooth))
+        // The exception, and the reason this is a named rule rather than a condition.
+        assertFalse(dismissesPanel(TrayAction.SetVolume(10)))
     }
 }

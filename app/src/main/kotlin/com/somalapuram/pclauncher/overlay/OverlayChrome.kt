@@ -9,6 +9,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import com.somalapuram.pclauncher.feature.shell.input.ShellAction
+import com.somalapuram.pclauncher.feature.shell.input.modifiers
+import com.somalapuram.pclauncher.feature.shell.input.shortcutFor
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -26,6 +37,11 @@ import com.somalapuram.pclauncher.feature.shell.start.StartMenu
 import com.somalapuram.pclauncher.feature.shell.start.displayableDeviceName
 import com.somalapuram.pclauncher.feature.shell.tray.TrayAction
 import com.somalapuram.pclauncher.feature.shell.tray.TrayState
+import com.somalapuram.pclauncher.feature.shell.tray.QuickSettingsPanel
+import com.somalapuram.pclauncher.feature.shell.tray.dismissesPanel
+import com.somalapuram.pclauncher.feature.shell.menu.ShellMenu
+import com.somalapuram.pclauncher.feature.shell.menu.ShellMenuBarClearance
+import com.somalapuram.pclauncher.feature.shell.menu.ShellMenuEdgeInset
 import com.somalapuram.pclauncher.power.powerPrivilegesOf
 
 /**
@@ -47,8 +63,8 @@ fun OverlayBar(
     iconFor: (AppEntry) -> android.graphics.drawable.Drawable?,
     tray: TrayState,
     onTrayAction: (TrayAction) -> Unit,
-    isStartOpen: Boolean,
-    onStartToggle: () -> Unit,
+    openMenu: ShellMenu,
+    onToggleMenu: (ShellMenu) -> Unit,
 ) {
     val context = LocalContext.current
     val inventory by (shell?.inventory ?: EmptyInventory).collectAsState()
@@ -69,8 +85,10 @@ fun OverlayBar(
         ShellBar(
             state = BarStateFactory.from(inventory.copy(entries = docked), iconFor = iconFor),
             startGlyph = PcGlyphs.Start,
-            isStartOpen = isStartOpen,
-            onStartClick = onStartToggle,
+            isStartOpen = openMenu == ShellMenu.Start,
+            onStartClick = { onToggleMenu(ShellMenu.Start) },
+            isTrayOpen = openMenu == ShellMenu.QuickSettings,
+            onTrayToggle = { onToggleMenu(ShellMenu.QuickSettings) },
             onDockItemClick = { item ->
                 docked.firstOrNull { it.key.component.flattenToShortString() == item.id }
                     ?.let(launcher::launch)
@@ -99,10 +117,14 @@ fun OverlayBar(
  * anywhere else to close it, the same as on the desktop.
  */
 @Composable
-fun OverlayStartMenu(
+fun OverlayMenuLayer(
+    menu: ShellMenu,
     shell: ShellController?,
     iconFor: (AppEntry) -> android.graphics.drawable.Drawable?,
+    tray: TrayState,
+    onTrayAction: (TrayAction) -> Unit,
     onPowerAction: (PowerAction) -> Unit,
+    onToggleMenu: (ShellMenu) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -112,19 +134,56 @@ fun OverlayStartMenu(
         AppLauncher(context.applicationContext) { shell?.recordLaunch(it) }
     }
 
+    // Keys are handled here rather than inside a menu, because the window draws more than one and
+    // only the Start menu ever had a handler — with quick settings up, Ctrl+Esc and Esc did nothing
+    // at all (tray-popover-host.md requirement 5, shell-shortcuts.md requirements 1 and 3).
+    val layerFocus = remember { FocusRequester() }
+    LaunchedEffect(menu) { runCatching { layerFocus.requestFocus() } }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .focusRequester(layerFocus)
+            .focusable()
+            // Preview, so these are read on the way down: a menu below keeps its own arrows and
+            // typing, and only the keys named here are taken from it.
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                when (shortcutFor(event.key, event.modifiers(), menuOpen = true)) {
+                    ShellAction.ToggleStart -> { onToggleMenu(ShellMenu.Start); true }
+                    ShellAction.CloseMenu -> { onDismiss(); true }
+                    ShellAction.OpenSettings -> { onPowerAction(PowerAction.OpenSettings); true }
+                    null -> false
+                }
+            }
             .clickable(interactionSource = null, indication = null) { onDismiss() },
-        contentAlignment = Alignment.BottomStart,
+        // Start at one corner, quick settings at the other — both bottom, both clear of the bar,
+        // both inset by the bar's own margin. One expression, so they cannot disagree
+        // (tray-popover-host.md requirement 2).
+        contentAlignment = if (menu == ShellMenu.QuickSettings) {
+            Alignment.BottomEnd
+        } else {
+            Alignment.BottomStart
+        },
     ) {
         Box(
             modifier = Modifier.padding(
-                start = PcSpacing.Large,
+                start = ShellMenuEdgeInset,
+                end = ShellMenuEdgeInset,
                 // Clear of the bar, which is a separate window below this one.
-                bottom = BarClearance,
+                bottom = ShellMenuBarClearance,
             ),
         ) {
+            if (menu == ShellMenu.QuickSettings) {
+                QuickSettingsPanel(
+                    state = tray,
+                    onAction = { action ->
+                        onTrayAction(action)
+                        if (dismissesPanel(action)) onDismiss()
+                    },
+                )
+                return@Box
+            }
             StartMenu(
                 entries = inventory.entries,
                 recent = recent,
@@ -152,9 +211,6 @@ fun OverlayStartMenu(
 
 /** How far a dock icon at peak magnification stands above the bar's own height. */
 private val MagnificationHeadroom = 12.dp
-
-/** Height of the bar window, which the menu window has to sit clear of. */
-private val BarClearance = 84.dp
 
 /** Stand-ins for a shell that could not be built, so the chrome still renders (GATE 4). */
 private val EmptyInventory =

@@ -74,6 +74,8 @@ fun ShellBar(
     onItemDragStart: (DockItem, androidx.compose.ui.geometry.Offset) -> Unit = { _, _ -> },
     onItemDrag: (androidx.compose.ui.geometry.Offset) -> Unit = {},
     onItemDragEnd: () -> Unit = {},
+    isTrayOpen: Boolean = false,
+    onTrayToggle: () -> Unit = {},
     tray: TrayState = TrayState(),
     onTrayAction: (com.somalapuram.pclauncher.feature.shell.tray.TrayAction) -> Unit = {},
 ) {
@@ -229,7 +231,8 @@ fun ShellBar(
         Spacer(Modifier.width(PcSpacing.Medium))
         SystemTray(
             state = tray,
-            onAction = onTrayAction,
+            isOpen = isTrayOpen,
+            onToggle = onTrayToggle,
             modifier = Modifier.align(Alignment.CenterVertically),
         )
 
