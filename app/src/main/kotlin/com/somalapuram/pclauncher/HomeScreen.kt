@@ -63,6 +63,7 @@ import com.somalapuram.pclauncher.feature.shell.bar.ShellBar
 import com.somalapuram.pclauncher.feature.shell.desktop.DesktopAppGrid
 import com.somalapuram.pclauncher.feature.shell.start.PinResolution
 import com.somalapuram.pclauncher.feature.shell.menu.ShellMenu
+import com.somalapuram.pclauncher.feature.shell.menu.ShellMenuBarClearance
 import com.somalapuram.pclauncher.feature.shell.menu.ShellMenuEdgeInset
 import com.somalapuram.pclauncher.feature.shell.menu.toggled
 import com.somalapuram.pclauncher.feature.shell.tray.QuickSettingsPanel
@@ -242,7 +243,18 @@ fun HomeScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
         Box(
-            modifier = Modifier.weight(1f).fillMaxSize(),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxSize()
+                // While the overlay owns the chrome the bar is a *separate window*, so it
+                // contributes no insets and the `ShellBar` below is not composed — nothing
+                // reserves its space and the last icon row is drawn underneath it. When the
+                // activity owns the bar the Column already reserves it, and doing it twice would
+                // leave a bar-sized band of dead wallpaper (grid-bounds.md).
+                .then(
+                    if (chromeInOverlay) Modifier.padding(bottom = ShellMenuBarClearance)
+                    else Modifier
+                ),
             contentAlignment = Alignment.Center,
         ) {
             when (outcome) {
