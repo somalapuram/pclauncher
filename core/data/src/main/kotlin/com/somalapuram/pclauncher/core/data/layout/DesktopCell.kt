@@ -153,6 +153,23 @@ fun cellAt(
 }
 
 /**
+ * How far to push whole rows down so they sit centred in [availableHeight].
+ *
+ * Rows are whole and the height almost never divides exactly. Left alone the remainder falls
+ * entirely below the last row, which reads as a grid pushed against the top edge rather than one
+ * placed in its area (grid-bounds.md).
+ *
+ * Returns zero for a degenerate size, and for a height that cannot hold even one row — there is
+ * nothing to centre, and inventing an offset there would push the empty grid off its own origin.
+ */
+fun rowCentringOffset(availableHeight: Float, cellHeight: Float): Float {
+    if (availableHeight <= 0f || cellHeight <= 0f) return 0f
+    val rows = (availableHeight / cellHeight).toInt()
+    if (rows <= 0) return 0f
+    return (availableHeight - rows * cellHeight) / 2f
+}
+
+/**
  * Encodes a layout for storage; skips malformed entries on read rather than losing the desktop.
  *
  * Written as `id|col|row|spanCols|spanRows`. Three-field lines predate spans and decode as 1×1 —

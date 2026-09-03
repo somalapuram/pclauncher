@@ -97,6 +97,12 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
   the Start menu never blinks the bar. *Status: Accepted · Implemented.*
 - [`shell/tray-popover-host.md`](shell/tray-popover-host.md) — quick settings is placed by the host
   the way the Start menu is. *Status: Accepted · Implemented.*
+- [`shell/start-button-gloss.md`](shell/start-button-gloss.md) — the Start button drawn as
+  glass like the icons beside it, in every state. *Status: Accepted · Implemented.*
+- [`shell/start-glyph-size.md`](shell/start-glyph-size.md) — the grid of boxes inside the Start
+  button drawn larger, and larger again while the menu is open. *Status: Accepted · Implemented.*
+- [`shell/start-press-dim.md`](shell/start-press-dim.md) — the Start button dims under the finger
+  instead of flashing brighter. *Status: Accepted · Implemented.*
 - [`shell/overlay-permission-ask.md`](shell/overlay-permission-ask.md) — explain "Display over other
   apps" once, then let the user decide. *Status: Accepted · Implemented.*
 - [`shell/dock-taskbar.md`](shell/dock-taskbar.md) — one bar: Start button, magnifying dock,
@@ -134,6 +140,8 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
   the grid's corner. *Status: Accepted · Implemented.*
 - [`desktop/icon-grid.md`](desktop/icon-grid.md) — persisted icon cells, drag-to-arrange, and the
   desktop’s own context menu (wallpaper, add widget). *Status: Accepted · Implemented.*
+- [`desktop/grid-bounds.md`](desktop/grid-bounds.md) — the usable area ends at the overlay bar,
+  and the rows that fit are centred in it. *Status: Accepted · Implemented.*
 - [`desktop/widget-resize.md`](desktop/widget-resize.md) — long-press a widget to resize it by
   dragging, within the provider's permitted axes. *Status: Accepted · Implemented.*
 - [`desktop/widget-drag.md`](desktop/widget-drag.md) — drag a widget to arrange it on the grid,

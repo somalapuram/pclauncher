@@ -48,6 +48,7 @@ import com.somalapuram.pclauncher.core.apps.AppEntry
 import com.somalapuram.pclauncher.core.data.layout.DesktopCell
 import com.somalapuram.pclauncher.core.data.layout.DesktopLayout
 import com.somalapuram.pclauncher.core.data.layout.cellAt
+import com.somalapuram.pclauncher.core.data.layout.rowCentringOffset
 import com.somalapuram.pclauncher.core.data.layout.widgetIdOf
 import com.somalapuram.pclauncher.core.data.layout.ResizeEdge
 import com.somalapuram.pclauncher.core.data.layout.ResizePermission
@@ -147,6 +148,15 @@ fun DesktopAppGrid(
     val currentPlaced by rememberUpdatedState(placed)
     val currentRows by rememberUpdatedState(rows)
 
+    // Whole rows rarely fill the height exactly. Centring the remainder puts equal air above the
+    // first row and below the last (grid-bounds.md). Applied to a child container rather than as
+    // padding on this Box: padding would change the height this was derived from, and the value
+    // would oscillate between frames.
+    val centringPx = rowCentringOffset(heightPx.toFloat(), cellHpx)
+    // Same reason as `currentRows` — the gesture below keeps the lambdas it was given, so a value
+    // read inside it has to be read through state that updates rather than captured by value.
+    val currentCentring by rememberUpdatedState(centringPx)
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -156,11 +166,15 @@ fun DesktopAppGrid(
                 // about the grid, and acting on it throws away an arrangement that was correct.
                 if (it.size.height > 0) heightPx = it.size.height
                 if (it.size.width > 0) widthPx = it.size.width
-                originInRoot = it.positionInRoot()
                 // Derived from the size just measured, not from `rows` — that was computed during
                 // this composition, from the height *before* this measurement, so reporting it
                 // handed back the stale count and the wrong arrangement outlived the frame.
                 val measuredRows = if (cellHpx > 0f) (it.size.height / cellHpx).toInt() else 0
+                // The origin the caller drops against is where cell (0,0) is *drawn*, which the
+                // centring offset moved. Reporting the container's own corner instead would put
+                // every drop half a remainder above the icon under the pointer.
+                originInRoot = it.positionInRoot() +
+                    Offset(0f, rowCentringOffset(it.size.height.toFloat(), cellHpx))
                 onGridMetrics(cellWpx, cellHpx, measuredRows, originInRoot, it.size.width.toFloat())
             }
             // The empty desktop's own gesture. Children are hit-tested first, so an icon handles
@@ -174,7 +188,8 @@ fun DesktopAppGrid(
                     // A press that landed on a widget belongs to the widget — it means "resize
                     // me", and the desktop's own menu must not open on top of it. Both gestures
                     // fire at the same instant otherwise, and which one wins is a race.
-                    val over = cellAt(at.x, at.y, cellWpx, cellHpx, currentRows)
+                    // Local to this container, but the cells were drawn a centring offset lower.
+                    val over = cellAt(at.x, at.y - currentCentring, cellWpx, cellHpx, currentRows)
                         ?.let { cell -> currentPlaced.placements.firstOrNull { it.covers(cell) } }
                     val onWidget = over != null && widgetIdOf(over.id) != null
 
@@ -200,60 +215,69 @@ fun DesktopAppGrid(
             )
         }
 
-        // Widgets share the icons' cell space, so they are drawn from the same placements.
-        placed.placements.forEach { placement ->
-            val widgetId = widgetIdOf(placement.id) ?: return@forEach
+        // Everything positioned by cell, moved together so the rows sit centred between the
+        // top edge and the bar. One container rather than an offset per child: icons and
+        // widgets share the cell arithmetic and must not part company (grid-bounds.md).
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .offset { IntOffset(0, centringPx.roundToInt()) },
+        ) {
+            // Widgets share the icons' cell space, so they are drawn from the same placements.
+            placed.placements.forEach { placement ->
+                val widgetId = widgetIdOf(placement.id) ?: return@forEach
 
-            DesktopWidget(
-                placement = placement,
-                widgetId = widgetId,
-                view = widgetViewFor(widgetId),
-                permission = resizePermissionFor(widgetId),
-                isResizing = resizingWidget == widgetId,
-                cellWidth = cellW,
-                cellHeight = cellH,
-                cellWidthPx = cellWpx,
-                cellHeightPx = cellHpx,
-                columnsAvailable = columns,
-                rowsAvailable = rows,
-                onOpenResize = { resizingWidget = widgetId },
-                onRemove = {
-                    // The frame belongs to a widget that is about to stop existing.
-                    if (resizingWidget == widgetId) resizingWidget = null
-                    onRemoveWidget(widgetId)
-                },
-                onMove = { cell -> onMoveWidget(widgetId, cell) },
-                onResizeDrag = { edge, pixels -> onResizeDrag(widgetId, edge, pixels) },
-                onResizeStart = { onResizeStart(widgetId) },
-                onResizeEnd = onResizeEnd,
-                onReportSize = { w, h -> onReportWidgetSize(widgetId, w, h) },
-            )
-        }
+                DesktopWidget(
+                    placement = placement,
+                    widgetId = widgetId,
+                    view = widgetViewFor(widgetId),
+                    permission = resizePermissionFor(widgetId),
+                    isResizing = resizingWidget == widgetId,
+                    cellWidth = cellW,
+                    cellHeight = cellH,
+                    cellWidthPx = cellWpx,
+                    cellHeightPx = cellHpx,
+                    columnsAvailable = columns,
+                    rowsAvailable = rows,
+                    onOpenResize = { resizingWidget = widgetId },
+                    onRemove = {
+                        // The frame belongs to a widget that is about to stop existing.
+                        if (resizingWidget == widgetId) resizingWidget = null
+                        onRemoveWidget(widgetId)
+                    },
+                    onMove = { cell -> onMoveWidget(widgetId, cell) },
+                    onResizeDrag = { edge, pixels -> onResizeDrag(widgetId, edge, pixels) },
+                    onResizeStart = { onResizeStart(widgetId) },
+                    onResizeEnd = onResizeEnd,
+                    onReportSize = { w, h -> onReportWidgetSize(widgetId, w, h) },
+                )
+            }
 
-        entries.forEach { entry ->
-            val id = entry.key.component.flattenToShortString()
-            // No cell yet means the grid has not been measured. Drawing it at the origin would
-            // stack every icon in one corner; waiting a frame shows wallpaper, which is what SRS
-            // §12 asks for over a wrong screen.
-            val cell = placed.cellFor(id) ?: return@forEach
+            entries.forEach { entry ->
+                val id = entry.key.component.flattenToShortString()
+                // No cell yet means the grid has not been measured. Drawing it at the origin would
+                // stack every icon in one corner; waiting a frame shows wallpaper, which is what SRS
+                // §12 asks for over a wrong screen.
+                val cell = placed.cellFor(id) ?: return@forEach
 
-            DesktopIcon(
-                entry = entry,
-                isPinned = isPinned(entry),
-                painter = iconFor(entry),
-                onLaunch = { onLaunch(entry) },
-                onTogglePin = { onTogglePin(entry) },
-                // Passed straight through: the icon reports its own root position, because it is
-                // the only participant that knows where it is. Adding the *grid's* origin here
-                // dropped the icon's cell offset and put every drag near the grid's corner
-                // (drag-origin.md).
-                onDragStart = { at -> onDragStart(entry, at) },
-                onDrag = onDrag,
-                onDragEnd = onDragEnd,
-                modifier = Modifier
-                    .offset { IntOffset((cell.column * cellWpx).roundToInt(), (cell.row * cellHpx).roundToInt()) }
-                    .width(cellW),
-            )
+                DesktopIcon(
+                    entry = entry,
+                    isPinned = isPinned(entry),
+                    painter = iconFor(entry),
+                    onLaunch = { onLaunch(entry) },
+                    onTogglePin = { onTogglePin(entry) },
+                    // Passed straight through: the icon reports its own root position, because it is
+                    // the only participant that knows where it is. Adding the *grid's* origin here
+                    // dropped the icon's cell offset and put every drag near the grid's corner
+                    // (drag-origin.md).
+                    onDragStart = { at -> onDragStart(entry, at) },
+                    onDrag = onDrag,
+                    onDragEnd = onDragEnd,
+                    modifier = Modifier
+                        .offset { IntOffset((cell.column * cellWpx).roundToInt(), (cell.row * cellHpx).roundToInt()) }
+                        .width(cellW),
+                )
+            }
         }
     }
 }
