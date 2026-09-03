@@ -133,3 +133,15 @@ fun bluetoothEnableAction(hasConnectPermission: Boolean): TrayAction =
 /** The action a slider position means, ready to hand to whatever can perform it. */
 fun volumeAction(fraction: Float, max: Int): TrayAction =
     TrayAction.SetVolume(streamIndexFor(fraction, max))
+
+/**
+ * Whether acting on a row should close the quick-settings panel.
+ *
+ * A hand-off leaves for another screen, so the panel has done its job. The volume slider is the
+ * exception: closing it on every drag step would make the control unusable.
+ *
+ * A function rather than a condition at the call site, because the panel is now drawn by two hosts
+ * — the home activity and the overlay's menu window — and a rule written twice is a rule that will
+ * eventually differ (tray-popover-host.md).
+ */
+fun dismissesPanel(action: TrayAction): Boolean = action !is TrayAction.SetVolume

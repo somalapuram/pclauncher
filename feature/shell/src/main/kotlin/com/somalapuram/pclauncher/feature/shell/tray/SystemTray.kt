@@ -29,19 +29,23 @@ import com.somalapuram.pclauncher.core.design.PcSpacing
 /**
  * The tray: Bluetooth, Wi-Fi, battery, volume, clock (SRS §6.2).
  *
- * The four indicators are one click target, not four. They open the same quick-settings popover, so
+ * The four indicators are one click target, not four. They open the same quick-settings panel, so
  * there is one anchor and one dismiss rule for what a user reads as a single control
  * (tray-controls.md requirement 5).
+ *
+ * The panel itself is **not** drawn here. It is the host's, drawn in the same full-screen surface
+ * that draws the Start menu and placed by the same alignment — because a panel anchored inside the
+ * bar cannot be placed above it once the bar is a window of its own (tray-popover-host.md).
  */
 @Composable
 fun SystemTray(
     state: TrayState,
     modifier: Modifier = Modifier,
-    onAction: (TrayAction) -> Unit = {},
+    isOpen: Boolean = false,
+    onToggle: () -> Unit = {},
 ) {
     val colors = LocalPcColors.current
-    val density = LocalDensity.current
-    var open by remember { mutableStateOf(false) }
+    val open = isOpen
 
     Box(modifier = modifier) {
         Row(
@@ -49,7 +53,7 @@ fun SystemTray(
                 // Clipped above the click, not merely painted below it: indication is bounded by
                 // the node, so a rounded background alone leaves the press drawing as a rectangle.
                 .clip(RoundedCornerShape(PcCorners.Popover))
-                .clickable { open = !open }
+                .clickable { onToggle() }
                 .background(
                     if (open) colors.onSurface.copy(alpha = 0.10f)
                     else androidx.compose.ui.graphics.Color.Transparent,
@@ -71,34 +75,6 @@ fun SystemTray(
             Text(text = state.timeText, color = colors.onSurface, fontSize = 13.sp)
         }
 
-        if (open) {
-            // Anchored above the bar and right-aligned to the tray, the way every desktop puts it.
-            Popup(
-                // Aligned to the window at the bar's own margin, so the panel's edge and the bar's
-                // edge agree (tray-popover-placement.md).
-                popupPositionProvider = TrayPopoverPosition(
-                    edgeMarginPx = with(density) { PcSpacing.Large.roundToPx() },
-                    gapPx = with(density) { TrayPopoverGap.roundToPx() },
-                ),
-                onDismissRequest = { open = false },
-                properties = androidx.compose.ui.window.PopupProperties(
-                    focusable = true,
-                    dismissOnClickOutside = true,
-                    dismissOnBackPress = true,
-                ),
-            ) {
-                QuickSettingsPanel(
-                    state = state,
-                    onAction = { action ->
-                        onAction(action)
-                        // A hand-off leaves for another screen, so the panel has done its job. The
-                        // slider is the exception: closing it on every drag step would make the
-                        // control unusable.
-                        if (action !is TrayAction.SetVolume) open = false
-                    },
-                )
-            }
-        }
     }
 }
 

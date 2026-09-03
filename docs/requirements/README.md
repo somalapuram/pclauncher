@@ -95,6 +95,8 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
   window so it stays above app windows. *Status: Accepted · In progress.*
 - [`shell/overlay-window-split.md`](shell/overlay-window-split.md) — one window per size, so opening
   the Start menu never blinks the bar. *Status: Accepted · Implemented.*
+- [`shell/tray-popover-host.md`](shell/tray-popover-host.md) — quick settings is placed by the host
+  the way the Start menu is. *Status: Accepted · Implemented.*
 - [`shell/overlay-permission-ask.md`](shell/overlay-permission-ask.md) — explain "Display over other
   apps" once, then let the user decide. *Status: Accepted · Implemented.*
 - [`shell/dock-taskbar.md`](shell/dock-taskbar.md) — one bar: Start button, magnifying dock,

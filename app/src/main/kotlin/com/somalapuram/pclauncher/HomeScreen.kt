@@ -62,6 +62,11 @@ import com.somalapuram.pclauncher.core.data.pins.Pins
 import com.somalapuram.pclauncher.feature.shell.bar.ShellBar
 import com.somalapuram.pclauncher.feature.shell.desktop.DesktopAppGrid
 import com.somalapuram.pclauncher.feature.shell.start.PinResolution
+import com.somalapuram.pclauncher.feature.shell.menu.ShellMenu
+import com.somalapuram.pclauncher.feature.shell.menu.ShellMenuEdgeInset
+import com.somalapuram.pclauncher.feature.shell.menu.toggled
+import com.somalapuram.pclauncher.feature.shell.tray.QuickSettingsPanel
+import com.somalapuram.pclauncher.feature.shell.tray.dismissesPanel
 import com.somalapuram.pclauncher.feature.shell.interaction.DragGhost
 import com.somalapuram.pclauncher.feature.shell.interaction.DragOrigin
 import com.somalapuram.pclauncher.feature.shell.interaction.DragState
@@ -154,7 +159,8 @@ fun HomeScreen(
 
     var desktopOrigin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
     var desktopWidthPx by remember { mutableStateOf(0f) }
-    var startOpen by remember { mutableStateOf(false) }
+    // One value, so the Start menu and quick settings cannot both be up (tray-popover-host.md).
+    var openMenu by remember { mutableStateOf(ShellMenu.None) }
     var widgetPickerOpen by remember { mutableStateOf(false) }
 
     val pinnedIds = currentPins.items.map { it.component }
@@ -208,19 +214,20 @@ fun HomeScreen(
             .focusable()
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                // menuOpen is false here even when the menu is up: an open menu has its own focus
-                // and its own handler, and this one must not answer for it.
-                when (shortcutFor(event.key, event.modifiers(), menuOpen = false)) {
+                when (shortcutFor(event.key, event.modifiers(), menuOpen = openMenu.isOpen)) {
                     ShellAction.ToggleStart -> {
-                        if (chromeInOverlay) onOverlayStartToggle() else startOpen = !startOpen
+                        if (chromeInOverlay) onOverlayStartToggle()
+                        else openMenu = openMenu.toggled(ShellMenu.Start)
                         true
                     }
                     ShellAction.OpenSettings -> {
                         onPowerAction(com.somalapuram.pclauncher.feature.shell.start.PowerAction.OpenSettings)
                         true
                     }
-                    // Esc on a bare desktop is not ours to take.
-                    ShellAction.CloseMenu, null -> false
+                    ShellAction.CloseMenu -> { openMenu = ShellMenu.None; true }
+                    // Esc on a bare desktop is not ours to take; `shortcutFor` only names it a
+                    // shortcut while a menu is open.
+                    null -> false
                 }
             }
             // Safe drawing *minus* the keyboard. Including the IME inset squeezes the whole shell
@@ -296,8 +303,10 @@ fun HomeScreen(
             ShellBar(
                 state = BarStateFactory.from(apps.copy(entries = docked), iconFor = iconFor),
                 startGlyph = PcGlyphs.Start,
-                isStartOpen = startOpen,
-                onStartClick = { startOpen = !startOpen },
+                isStartOpen = openMenu == ShellMenu.Start,
+                onStartClick = { openMenu = openMenu.toggled(ShellMenu.Start) },
+                isTrayOpen = openMenu == ShellMenu.QuickSettings,
+                onTrayToggle = { openMenu = openMenu.toggled(ShellMenu.QuickSettings) },
                 onDockItemClick = { item ->
                     docked.firstOrNull { it.key.component.flattenToShortString() == item.id }
                         ?.let(onLaunchApp)
@@ -350,10 +359,10 @@ fun HomeScreen(
         }
     }
 
-    if (outcome is StartupOutcome.Ready && startOpen) {
-        // A full-screen catcher under the menu. It covers the bar too, so a click on the Start
-        // button while the menu is open lands here and closes it once, rather than reaching the
-        // button and toggling twice back to open.
+    if (outcome is StartupOutcome.Ready && openMenu.isOpen) {
+        // A full-screen catcher under the menu. It covers the bar too, so a click on the button
+        // that opened it lands here and closes it once, rather than reaching the button and
+        // toggling twice back to open.
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -361,27 +370,46 @@ fun HomeScreen(
                 .clickable(
                     interactionSource = null,
                     indication = null,
-                ) { startOpen = false },
+                ) { openMenu = ShellMenu.None },
         )
 
         Box(
             modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(start = PcSpacing.Large, bottom = StartMenuBottomInset),
+                // Start at one corner, quick settings at the other; both bottom, both clear of the
+                // bar, both inset by the bar's own margin.
+                .align(
+                    if (openMenu == ShellMenu.QuickSettings) Alignment.BottomEnd
+                    else Alignment.BottomStart,
+                )
+                .padding(
+                    start = ShellMenuEdgeInset,
+                    end = ShellMenuEdgeInset,
+                    bottom = StartMenuBottomInset,
+                ),
         ) {
-            StartMenu(
-                entries = apps.entries,
-                recent = recent,
-                isPinned = isPinned,
-                onLaunch = { onLaunchApp(it); startOpen = false },
-                onTogglePin = onTogglePin,
-                onDismiss = { startOpen = false },
-                onToggleStart = { startOpen = !startOpen },
-                iconFor = iconFor,
-                deviceName = deviceName,
-                powerPrivileges = powerPrivileges,
-                onPowerAction = { startOpen = false; onPowerAction(it) },
-            )
+            when (openMenu) {
+                ShellMenu.QuickSettings -> QuickSettingsPanel(
+                    state = tray,
+                    onAction = { action ->
+                        onTrayAction(action)
+                        if (dismissesPanel(action)) openMenu = ShellMenu.None
+                    },
+                )
+
+                else -> StartMenu(
+                    entries = apps.entries,
+                    recent = recent,
+                    isPinned = isPinned,
+                    onLaunch = { onLaunchApp(it); openMenu = ShellMenu.None },
+                    onTogglePin = onTogglePin,
+                    onDismiss = { openMenu = ShellMenu.None },
+                    onToggleStart = { openMenu = openMenu.toggled(ShellMenu.Start) },
+                    iconFor = iconFor,
+                    deviceName = deviceName,
+                    powerPrivileges = powerPrivileges,
+                    onPowerAction = { openMenu = ShellMenu.None; onPowerAction(it) },
+                )
+            }
         }
     }
     }
