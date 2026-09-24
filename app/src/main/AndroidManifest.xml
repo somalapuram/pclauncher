@@ -72,6 +72,37 @@
             </intent-filter>
         </activity>
 
+        <!--
+          The same desktop on a second monitor (secondary-display-home.md).
+
+          WindowManager refuses a singleTask home on a secondary display and looks for
+          SECONDARY_HOME in the primary home's package instead; with none declared it falls back
+          to config_secondaryHomePackage (Launcher3), which this app overrides out of the image —
+          so the monitor came up as an extended, freeform desktop with no home on it at all.
+
+          singleTop, not singleTask: one instance per display is exactly the point, and it is the
+          mode Launcher3's own SecondaryDisplayLauncher uses. Everything else mirrors HomeActivity
+          so the two desktops behave alike; the only per-display differences are decided at
+          runtime in HomeActivity from the display it is actually on.
+        -->
+        <activity
+            android:name=".SecondaryHomeActivity"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:resizeableActivity="true"
+            android:stateNotNeeded="true"
+            android:theme="@style/Theme.PcLauncher"
+            android:windowSoftInputMode="adjustNothing">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.SECONDARY_HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name=".overlay.ShellOverlayService"
             android:exported="false"
