@@ -101,6 +101,15 @@
           so the two desktops behave alike; the only per-display differences are decided at
           runtime in HomeActivity from the display it is actually on.
         -->
+        <!--
+          Its own task affinity, or it never reaches the second monitor. With the package default
+          it shares HomeActivity's affinity, ActivityStarter finds display 0's home task and puts
+          it THERE — observed on the HP laptop: "task=Task{#9 type=home}" and WindowInsets at the
+          panel's 1920x1200, with both activities stacked in one task on display 0 and the monitor
+          left as a status bar over black. Launcher3 solves the same collision from the other side
+          (taskAffinity="" on its primary); this side leaves HomeActivity untouched
+          (secondary-home-task-affinity.md).
+        -->
         <activity
             android:name=".SecondaryHomeActivity"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode"
@@ -109,6 +118,7 @@
             android:launchMode="singleTop"
             android:resizeableActivity="true"
             android:stateNotNeeded="true"
+            android:taskAffinity="com.somalapuram.pclauncher.secondary"
             android:theme="@style/Theme.PcLauncher"
             android:windowSoftInputMode="adjustNothing">
 

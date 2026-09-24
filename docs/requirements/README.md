@@ -81,6 +81,9 @@ require the AOSP tree, a platform signature, or a device build. Anything that do
 - [`shell/secondary-display-home.md`](shell/secondary-display-home.md) — a `SECONDARY_HOME`
   activity so a second monitor gets the pclauncher desktop, with the bar hosted by the activity
   on any display that is not the default. *Status: Accepted · Implemented.*
+- [`shell/secondary-home-task-affinity.md`](shell/secondary-home-task-affinity.md) — the secondary
+  home gets its own task affinity, or task reuse lands it on display 0. Amends the doc above.
+  *Status: Accepted · Implemented.*
 - `shell/menu-bar.md` — top bar, launcher-owned Window/View/Help menus. *Status: Planned.*
 - [`shell/bar-alignment.md`](shell/bar-alignment.md) — the dock on the bar's centre line, and an
   Android app-grid Start mark. *Status: Accepted · Implemented.*
