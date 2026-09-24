@@ -20,6 +20,7 @@ import com.somalapuram.pclauncher.overlay.ChromeHost
 import com.somalapuram.pclauncher.overlay.ShellOverlayService
 import com.somalapuram.pclauncher.overlay.canDrawOverlay
 import com.somalapuram.pclauncher.overlay.chromeHostFor
+import com.somalapuram.pclauncher.overlay.isDefaultDisplay
 import com.somalapuram.pclauncher.prompts.FirstRunPrompt
 import com.somalapuram.pclauncher.core.apps.hasUsageAccess
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -46,8 +47,12 @@ import dagger.hilt.android.EntryPointAccessors
  * happens before `onCreate` runs, so a broken graph would crash the home screen before any guard
  * could catch it. Resolving the entry point inside [runCatching] instead means a dependency failure
  * lands on the fallback desktop rather than on the user (GATE 4, SRS §12).
+ *
+ * `open` for exactly one subclass, [SecondaryHomeActivity], which adds a manifest declaration and
+ * nothing else. What differs on a second monitor is decided here from the display this instance
+ * is actually on, so the two desktops cannot drift apart (secondary-display-home.md).
  */
-class HomeActivity : ComponentActivity() {
+open class HomeActivity : ComponentActivity() {
 
     private var shell: ShellController? = null
 
@@ -92,6 +97,12 @@ class HomeActivity : ComponentActivity() {
         // needs NEW_TASK, and these launches want to sit beside the desktop rather than inside it.
         val trayActions = com.somalapuram.pclauncher.feature.shell.tray.SystemTrayActions(this)
 
+        // Which screen this desktop is on, read from the display the activity is attached to and
+        // nowhere else. It decides two things below: whether the overlay service is ours to start,
+        // and whether its bar could ever be on this screen. Guarded like everything else on this
+        // path — a failure to read it means "default", today's behaviour, not a dead desktop.
+        val onDefaultDisplay = isDefaultDisplay(runCatching { display?.displayId }.getOrNull())
+
         setContent {
             // The wallpaper decides, not the system theme: the shell sits directly on the
             // wallpaper, so what it needs to know is what is behind it. A light theme over a dark
@@ -114,8 +125,11 @@ class HomeActivity : ComponentActivity() {
                 onPauseOrDispose {}
             }
             // Keyed on the permission, so a grant takes effect on return rather than on next boot.
-            LaunchedEffect(canOverlay) {
-                if (canOverlay) ShellOverlayService.start(this@HomeActivity)
+            // Only the desktop on the default display starts the service: the overlay window is
+            // display 0's, and a second monitor's home hosting its own bar must not start, stop
+            // or restart it (secondary-display-home.md requirement 4).
+            LaunchedEffect(canOverlay, onDefaultDisplay) {
+                if (canOverlay && onDefaultDisplay) ShellOverlayService.start(this@HomeActivity)
             }
             // Likewise for usage access: granting it swaps which source answers, and nothing in the
             // inventory or the counters changes to say so.
@@ -187,10 +201,14 @@ class HomeActivity : ComponentActivity() {
                     onReportWidgetSize = { id, widthDp, heightDp ->
                         widgets?.applySize(id, widthDp, heightDp)
                     },
-                    onOverlayStartToggle = { ShellOverlayService.toggleStart() },
+                    // Reaches the service only when the chrome is in the overlay, which is never
+                    // the case off the default display; the guard makes that explicit rather than
+                    // a property of HomeScreen's call site.
+                    onOverlayStartToggle = { if (onDefaultDisplay) ShellOverlayService.toggleStart() },
                     chromeInOverlay = chromeHostFor(
                         hasPermission = canOverlay,
                         overlayRunning = overlayRunning,
+                        onDefaultDisplay = onDefaultDisplay,
                     ) == ChromeHost.Overlay,
                     deviceName = com.somalapuram.pclauncher.feature.shell.start.displayableDeviceName(
                         // The name the user actually set — what Bluetooth and Nearby show. The
@@ -260,6 +278,10 @@ class HomeActivity : ComponentActivity() {
         )
     }
 
+    // Deliberately does NOT stop ShellOverlayService. That service is display 0's bar; a home
+    // being torn down because its monitor was unplugged must not take the main screen's chrome
+    // with it (secondary-display-home.md requirement 6). It was never stopped here, and this
+    // comment is what keeps a future tidy-up from adding it.
     override fun onDestroy() {
         shell?.stop()
         widgets?.stopListening()
